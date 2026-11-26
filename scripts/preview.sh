@@ -23,7 +23,10 @@ if [ "${1:-}" = "--reset" ] || [ ! -f "$DIR/seeded" ]; then
   touch "$DIR/seeded"
 fi
 if [ ! -f .dev.vars ]; then
-  printf 'ADMIN_PASSWORD=preview-%s\nREVIEW_PASSWORD=preview-review\nINBOUND_SECRET=dev\nMETA_VERIFY_TOKEN=dev\nMETA_APP_SECRET=dev-app-secret\nANTHROPIC_API_KEY=dev\n' "$(openssl rand -hex 6)" > .dev.vars
+  printf 'ADMIN_PASSWORD=preview-%s\nREVIEW_PASSWORD=preview-review\nINBOUND_SECRET=dev\nMETA_VERIFY_TOKEN=dev\nMETA_APP_SECRET=dev-app-secret\nANTHROPIC_API_KEY=dev\nATLAS_PREVIEW=true\n' "$(openssl rand -hex 6)" > .dev.vars
   echo "Created .dev.vars: the preview's login password is its ADMIN_PASSWORD."
+elif ! grep -q '^ATLAS_PREVIEW=' .dev.vars; then
+  # Local preview must not send DMs, post public replies, or change the live Instagram subscription.
+  printf '\nATLAS_PREVIEW=true\n' >> .dev.vars
 fi
 exec npx wrangler dev --local --port "${PORT:-8791}" --persist-to "$DIR"

@@ -11,7 +11,7 @@ import * as db from "./db";
 import { EDITOR_CSS, EDITOR_JS } from "./flow_editor";
 import { saveIceBreakers, saveMenu, testCode } from "./flows";
 import { editorGraph, graphStats, loadGraph, publish, sanitize, STAGES, triggerCfg, validate, type Graph, type Node } from "./graph";
-import { fetchAccount, recentMedia, recentStories, type Media, type Story } from "./meta";
+import { fetchAccount, recentMedia, recentStories, redactSecrets, type Media, type Story } from "./meta";
 import type { Env } from "./setter";
 import { icon } from "./theme";
 
@@ -671,7 +671,7 @@ export async function flowsAdminPost(env: Env, req: Request, path: string, who: 
     try {
       await (kind === "menu" ? saveMenu : saveIceBreakers)(env, token, str(f, "lines"));
     } catch (e) {
-      return profilePage(env, who, kind, `Instagram said no: ${String(e)}`);
+      return profilePage(env, who, kind, `Instagram said no: ${redactSecrets(String(e))}`);
     }
     return to("/admin/automations?tab=basic");
   }

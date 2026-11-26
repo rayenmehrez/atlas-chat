@@ -4,7 +4,7 @@
 import { isTest } from "./db";
 import { logError } from "./health";
 import { recordBot, startCommentFlow } from "./flows";
-import { recentMedia, replyToComment, type MetaComment } from "./meta";
+import { recentMedia, redactSecrets, replyToComment, type MetaComment } from "./meta";
 
 export interface Trigger {
   id: number;
@@ -156,7 +156,7 @@ async function sendCommentDm(db: D1Database, token: string | null, skoolLink: st
     const wait = Math.min(HOUR, 2 ** attempts * 60_000);
     await db
       .prepare(`UPDATE comments SET status = ?2, trigger_id = ?3, error = ?4, attempts = ?5, retry_at = ?6 WHERE comment_id = ?1`)
-      .bind(c.comment_id, retry ? "queued" : "failed", trigger.id, String(e), attempts, retry ? now + wait : null)
+      .bind(c.comment_id, retry ? "queued" : "failed", trigger.id, redactSecrets(String(e)), attempts, retry ? now + wait : null)
       .run();
     return;
   }

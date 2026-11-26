@@ -9,7 +9,8 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
-const G = "https://graph.instagram.com/v26.0";
+const unified = String(process.env.IG_TOKEN ?? "").startsWith("EA");
+const G = unified ? "https://graph.facebook.com/v27.0" : "https://graph.instagram.com/v26.0";
 const SKOOL = process.env.SKOOL_GROUP ? `skool.com/${process.env.SKOOL_GROUP}` : null; // marks threads that got the link
 const [out] = process.argv.slice(2);
 const sinceArg = process.argv.find((a) => a.startsWith("--since="));
@@ -17,17 +18,31 @@ const since = sinceArg ? Date.parse(sinceArg.slice(8)) : null;
 const token = process.env.IG_TOKEN;
 if (!out || !token) throw new Error("usage: IG_TOKEN=... node scripts/backfill.mjs <out dir> [--since=<ISO date>]");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let meId = null;
+
+function resolve(url) {
+  let path = url.startsWith("http") ? url.replace(/^https:\/\/graph\.(?:instagram|facebook)\.com(?:\/v[\d.]+)?/, "") : url;
+  path = path.replace(/([?&])access_token=[^&]*&?/, "$1").replace(/[?&]$/, "");
+  if (unified && meId && /^\/me(?=\/|\?|$)/.test(path) && !path.startsWith("/me/assigned_instagram_accounts")) {
+    path = path.replace(/^\/me(?=\/|\?|$)/, `/${meId}`);
+  }
+  return `${G}${path}`;
+}
 
 async function get(url) {
   for (let attempt = 0; ; attempt++) {
-    const res = await fetch(url.startsWith("http") ? url : `${G}${url}`, { headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch(resolve(url), { headers: { Authorization: `Bearer ${token}` } });
     const body = await res.json().catch(() => ({}));
     if (res.ok && !body.error) return body;
-    if (attempt >= 6) throw new Error(`${res.status} ${JSON.stringify(body.error ?? body)}`);
+    if (attempt >= 6) throw new Error(`${res.status} ${JSON.stringify(body.error ?? body).replaceAll(token, "[token]")}`);
     await sleep(2000 * 2 ** attempt); // rate limits: back off and retry
   }
 }
-const ME = (await get("/me?fields=user_id")).user_id; // the account the token belongs to
+const ME = unified
+  ? (await get("/me/assigned_instagram_accounts?fields=id,username")).data?.find((a) => a.id)?.id
+  : (await get("/me?fields=user_id")).user_id; // the account the token belongs to
+if (!ME) throw new Error(unified ? "no assigned Instagram account on this Unified Login token" : "instagram: no user id");
+meId = ME;
 
 const q = (v) => (v === null || v === undefined ? "NULL" : typeof v === "number" ? String(v) : `'${String(v).replace(/'/g, "''")}'`);
 const ms = (t) => Date.parse(t);

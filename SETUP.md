@@ -83,7 +83,10 @@ It stores the secret, puts the final version live and pauses at "Connect your In
 The Worker does not read an access token from a Wrangler secret. It reads `ig_token` from D1. Two ways to put it there:
 
 - **Log in with Instagram** (usual). OAuth exchanges a short code for a 60-day token, saves it, subscribes to DMs and comments, and the cron refreshes it weekly. The app id (`--app-id`) and `META_APP_SECRET` are required for that exchange and for webhook signatures. They are not the user token.
-- **A token they already have.** They paste a long-lived Instagram user token into `.env` as `IG_ACCESS_TOKEN=` (they paste it, you never read `.env` aloud). Then `npm run setup` checks it is for `@rayen.mhz`, writes it to D1, and subscribes. Weekly refresh only works if that token was issued by this same Meta app. A short-lived token or a token from another app will fail later. Prefer the button when they don't already have the right token.
+- **A token they already have.** They paste a long-lived token into `.env` as `IG_ACCESS_TOKEN=` (they paste it, you never read `.env` aloud). Then `npm run setup` checks it is for `@rayen.mhz`, writes it to D1, and subscribes. Two kinds both work:
+  - **Instagram Login** (`IG…`): checked on `graph.instagram.com` (`/me`). Weekly refresh renews it when this same Meta app issued it.
+  - **Unified Login** (`EA…`, the Business Integration System User token from “API setup with Unified login”): checked on `graph.facebook.com` (`/me/assigned_instagram_accounts`, then `/{ig-user-id}/…`). Meta rejects that token on `graph.instagram.com`. It is not refreshed with `ig_refresh_token`; the saved token is left as it is.
+  A short-lived token or a token from another app will fail later. Prefer the button when they don't already have the right token.
 
 Tell the user to, on a computer (the button isn't shown on phones):
 

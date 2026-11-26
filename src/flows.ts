@@ -12,7 +12,7 @@ import * as db from "./db";
 import { logError } from "./health";
 import { findByName, loadGraph, publish, type ActionItem, type Bubble, type Graph, type MessageData, type Node, type QuickReply, type Rule, type Variant } from "./graph";
 import { fillLink } from "./manychat";
-import { fetchProfile, graph, senderAction, subscribe, type MetaEvent } from "./meta";
+import { fetchProfile, graph, redactSecrets, senderAction, subscribe, type MetaEvent } from "./meta";
 import { pace, type Env } from "./setter";
 
 const INLINE_DELAY_S = 15; // webhook work gets about 30s after the response
@@ -213,7 +213,7 @@ export async function sendFlowMessage(
     .first<{ id: number }>();
   const sendId = row!.id;
   const built = buildMessage(b, qrs, sendId, env.SKOOL_LINK);
-  const fail = (e: unknown) => env.DB.prepare(`UPDATE flow_sends SET status = 'failed', error = ?2 WHERE id = ?1`).bind(sendId, String(e)).run();
+  const fail = (e: unknown) => env.DB.prepare(`UPDATE flow_sends SET status = 'failed', error = ?2 WHERE id = ?1`).bind(sendId, redactSecrets(String(e))).run();
   let res: { recipient_id?: string; message_id: string };
   let text = built.text;
   // Its echo can beat our insert: park the text it will echo as ("[template]" for button cards) so autonomy.ts

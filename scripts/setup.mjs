@@ -481,9 +481,39 @@ function settings(c) {
   const r = sql(c, `SELECT key, value FROM settings WHERE key IN ('ig_token', 'ig_token_at', 'ig_account_id', 'webhook_at', 'ig_profile')`);
   return r.ok ? Object.fromEntries(r.rows.map((x) => [x.key, x.value])) : null;
 }
+const IG_GRAPH = "https://graph.instagram.com/v26.0";
+const FB_GRAPH = "https://graph.facebook.com/v27.0";
+const isUnified = (token) => String(token).startsWith("EA");
+// One assigned account per token for the life of this process. Never log the token.
+const assignedCache = new Map();
+async function assignedAccount(token) {
+  if (assignedCache.has(token)) return assignedCache.get(token);
+  const res = await fetch(`${FB_GRAPH}/me/assigned_instagram_accounts?fields=id,username,name,profile_picture_url`, {
+    headers: { Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(15_000),
+  });
+  const body = await res.json();
+  const rows = Array.isArray(body?.data) ? body.data.filter((a) => a?.id) : [];
+  const want = String(readConfig().instagram_handle ?? "").toLowerCase();
+  const account = (want && rows.find((a) => String(a.username ?? "").toLowerCase() === want)) || (rows.length === 1 ? rows[0] : null);
+  assignedCache.set(token, account);
+  return account;
+}
+async function graphUrl(token, path) {
+  const p = path.startsWith("http") ? path.replace(/^https:\/\/graph\.(?:instagram|facebook)\.com(?:\/v[\d.]+)?/, "") : path;
+  if (!isUnified(token)) return `${IG_GRAPH}${p}`;
+  if (p.startsWith("/me/assigned_instagram_accounts") || !(p === "/me" || p.startsWith("/me/") || p.startsWith("/me?"))) return `${FB_GRAPH}${p}`;
+  const account = await assignedAccount(token);
+  if (!account?.id) return `${FB_GRAPH}${p}`;
+  return `${FB_GRAPH}${p.replace(/^\/me(?=\/|\?|$)/, `/${account.id}`)}`;
+}
 async function instagram(token, path) {
   try {
-    const res = await fetch(`https://graph.instagram.com/v26.0${path}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15_000) });
+    if (isUnified(token) && (path === "/me" || path.startsWith("/me?"))) {
+      const account = await assignedAccount(token);
+      if (account?.id) return { ...account, user_id: account.id };
+    }
+    const res = await fetch(await graphUrl(token, path), { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15_000) });
     return await res.json();
   } catch {
     return null;
@@ -639,8 +669,10 @@ async function storeAccessToken(c) {
   const me = await instagram(token, "/me?fields=username,user_id");
   if (!me?.username) {
     throw fail([
-      "Instagram refused IG_ACCESS_TOKEN.",
-      "Use a long-lived user token from this same Meta app (Instagram Login), with permission to read the account and to manage messages and comments.",
+      isUnified(token) ? "Meta refused IG_ACCESS_TOKEN." : "Instagram refused IG_ACCESS_TOKEN.",
+      isUnified(token)
+        ? "A token starting with EA is from Instagram API with Unified Login. It has to be a Business Integration System User token assigned to this Instagram account. AtlasChat sends those to graph.facebook.com, not graph.instagram.com."
+        : "Use a long-lived user token from this same Meta app (Instagram Login), with permission to read the account and to manage messages and comments.",
       "A short-lived token, or a token from a different app, will not refresh weekly. Clear the line and use Log in with Instagram instead.",
     ]);
   }
@@ -669,10 +701,10 @@ async function storeAccessToken(c) {
     }
   }
   if (!stored.ok) throw fail(["Couldn't store the Instagram access token in the database.", `      ${reason(stored.out).replaceAll(token, "[token]")}`]);
-  const sub = await fetch(
-    `https://graph.instagram.com/v26.0/me/subscribed_apps?${new URLSearchParams({ subscribed_fields: "messages,messaging_postbacks,messaging_seen,comments,live_comments", access_token: token })}`,
-    { method: "POST" },
-  ).catch(() => null);
+  const sub = await fetch(await graphUrl(token, `/me/subscribed_apps?${new URLSearchParams({ subscribed_fields: "messages,messaging_postbacks,messaging_seen,comments,live_comments" })}`), {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  }).catch(() => null);
   if (!sub?.ok) warn("The token is saved, but subscribing to DMs and comments failed. Use Connect Instagram in the console, or run setup again.");
   else ok("Subscribed to DMs and comments");
   ok(`Stored the Instagram access token for @${me.username}`);

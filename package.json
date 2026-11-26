@@ -7,7 +7,7 @@
     "check": "node scripts/setup.mjs check",
     "update": "git pull --ff-only && npm ci --no-audit --no-fund && node scripts/setup.mjs update",
     "preview": "bash scripts/preview.sh",
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --var ATLAS_PREVIEW:true",
     "deploy": "wrangler deploy",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",

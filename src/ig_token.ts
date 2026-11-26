@@ -3,8 +3,9 @@
 // `ig_token`, so a pasted token behaves like the one `npm run setup` leaves after "Log in with Instagram".
 // The token is never returned to the browser, logs, or these result codes.
 
+import { IG_HANDLE } from "./brand";
 import * as db from "./db";
-import { fetchAccount, subscribe, type Account } from "./meta";
+import { fetchAccount, instagramWritesAllowed, subscribe, type Account } from "./meta";
 import type { Env } from "./setter";
 
 const MIN_LEN = 20;
@@ -18,6 +19,7 @@ export type IgCode =
   | "preview"
   | "unreachable"
   | "rejected"
+  | "wrong_account"
   | "removed"
   | "verified"
   | "verify_none"
@@ -33,6 +35,7 @@ const NOTES: Record<IgCode, string> = {
   preview: "Token saved. Preview mode skips the live Instagram check.",
   unreachable: "Token saved. Instagram could not be reached to confirm it.",
   rejected: "Token saved, but Instagram did not accept it.",
+  wrong_account: "That token is for a different Instagram account, so it was not kept.",
   removed: "Token removed. Instagram is disconnected.",
   verified: "Instagram confirmed the connection.",
   verify_none: "No token saved yet. Paste one, or use Connect with Instagram.",
@@ -98,9 +101,20 @@ function refused(e: unknown): boolean {
   return /^instagram 4\d\d\b/.test(msg) || /\bcode 190\b/.test(msg);
 }
 
+function ambiguousAccount(e: unknown): boolean {
+  const msg = e instanceof Error ? e.message : "";
+  return /more than one Instagram account/.test(msg);
+}
+
+function otherAccount(account: Account): boolean {
+  if (!account.username || !IG_HANDLE || IG_HANDLE.startsWith("REPLACE")) return false;
+  return account.username.toLowerCase() !== IG_HANDLE.toLowerCase();
+}
+
 function safeAccount(account: Account, token: string): Account {
   const keep = (v: string | undefined) => (v && !v.includes(token) ? v : undefined);
   return {
+    id: keep(account.id),
     username: keep(account.username),
     name: keep(account.name),
     profile_picture_url: keep(account.profile_picture_url),
@@ -117,16 +131,36 @@ async function remember(env: Env, account: Account, now: number): Promise<boolea
   return true;
 }
 
+async function persist(env: Env, token: string, now: number): Promise<void> {
+  await db.setSetting(env.DB, "ig_token", token);
+  await db.setSetting(env.DB, "ig_token_at", String(now));
+  // Drop a previous account's cached name so a new paste does not keep showing the old @username.
+  await env.DB.prepare(`DELETE FROM settings WHERE key = 'ig_profile'`).run();
+}
+
 // Best-effort: OAuth connect subscribes the account so DMs and comments arrive. A failure here still leaves the token
-// in place (same as /auth/start, which saves the token before subscribe).
+// in place (same as /auth/start, which saves the token before subscribe). A token for a different Instagram account
+// is not kept: sending with it would act as that account.
 async function confirm(env: Env, token: string, now: number, saved: boolean): Promise<IgCode> {
   try {
     const account = safeAccount(await fetchAccount(token), token);
+    if (otherAccount(account)) {
+      if (!saved) await clearInstagramToken(env);
+      return "wrong_account";
+    }
+    if (saved) await persist(env, token, now);
     const named = await remember(env, account, now);
-    await subscribe(token).catch(() => {});
+    if (account.id && !String(account.id).includes(token)) await db.setSetting(env.DB, "ig_account_id", account.id);
+    if (instagramWritesAllowed()) await subscribe(token).catch(() => {});
     if (named) return saved ? "connected" : "verified";
     return "saved";
   } catch (e) {
+    // A token assigned to several accounts has no safe default. Do not keep it.
+    if (ambiguousAccount(e)) {
+      if (!saved) await clearInstagramToken(env);
+      return "wrong_account";
+    }
+    if (saved) await persist(env, token, now);
     if (refused(e)) return saved ? "rejected" : "verify_rejected";
     return saved ? "unreachable" : "verify_fail";
   }
@@ -137,11 +171,10 @@ export async function storeInstagramToken(env: Env, raw: string, opts: { preview
   if (!raw.trim()) return "empty";
   const token = normalizeToken(raw);
   if (!token) return "invalid";
-  await db.setSetting(env.DB, "ig_token", token);
-  await db.setSetting(env.DB, "ig_token_at", String(now));
-  // Drop a previous account's cached name so a new paste does not keep showing the old @username.
-  await env.DB.prepare(`DELETE FROM settings WHERE key = 'ig_profile'`).run();
-  if (opts.preview) return "preview";
+  if (opts.preview) {
+    await persist(env, token, now);
+    return "preview";
+  }
   return confirm(env, token, now, true);
 }
 
