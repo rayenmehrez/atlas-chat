@@ -129,15 +129,15 @@ dialog.fe-dlg::backdrop{background:rgba(0,0,0,.45)}
 .pt:after{content:"";position:absolute;inset:-9px}
 .pt.on{background:var(--mut)}.pt:hover{border-color:var(--pri);background:var(--pri)}
 .bt .pt{right:-31px}.qr .pt{right:-27px}.ft .pt{position:relative;right:-9px;top:auto;margin:0}.br .pt{right:-21px}
-.edel{position:absolute;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;border:0;padding:0;background:var(--pri);color:#fff;font-size:15px;line-height:24px;text-align:center;cursor:pointer;z-index:2}
+.edel{position:absolute;width:24px;height:24px;margin:-12px 0 0 -12px;border-radius:50%;border:0;padding:0;background:var(--brand);color:#fff;font-size:15px;line-height:24px;text-align:center;cursor:pointer;z-index:2}
 /* Canvas controls: 36px squares, + and - stacked mid-right, ? in the bottom right corner */
 .fe-zoom{position:absolute;right:38px;top:50%;margin-top:-44px;display:flex;flex-direction:column;gap:16px;z-index:2}
 .fe-zoom button,.fe-help{margin:0;width:36px;height:36px;padding:0;border-radius:6px;background:var(--panel);color:var(--ink);border:1px solid var(--line);display:grid;place-items:center}
 .fe-help{position:absolute;right:35px;bottom:35px;width:38px;height:38px;z-index:2}
 .fe-zoom button:hover,.fe-help:hover{background:var(--hover)}
 .fe-add{margin:0;padding:0;border-radius:50%;display:grid;place-items:center;box-shadow:0 2px 8px rgba(0,0,0,.08)}
-.fe-add{position:absolute;right:16px;top:16px;width:48px;height:48px;background:var(--pri);color:#fff;border:0;font-size:26px;z-index:2}
-.fe-add:hover{background:color-mix(in srgb,var(--pri) 88%,#000)}
+.fe-add{position:absolute;right:16px;top:16px;width:48px;height:48px;background:var(--brand);color:#fff;border:0;font-size:26px;z-index:2}
+.fe-add:hover{background:color-mix(in srgb,var(--brand) 82%,#000)}
 .fe-pick{position:absolute;z-index:7;background:var(--elev);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 34px rgba(0,0,0,.18);padding:6px;width:260px}
 .fe-pick button{display:flex;gap:10px;align-items:center;width:100%;margin:0;padding:8px 10px;background:none;color:var(--ink);text-align:left;font-weight:600;border-radius:10px}
 .fe-pick button:hover{background:var(--hover)}.fe-pick small{display:block;color:var(--mut);font-weight:400;font-size:12px}
@@ -486,7 +486,7 @@ function openTest() {
   function load() {
     codeEl.textContent = "···";
     api("test", { graph: G }).then(function (j) {
-      if (!j.httpOk || !j.code) { codeEl.textContent = "—"; note.textContent = "Couldn't make a code. Try again."; return; }
+      if (!j.httpOk || !j.code) { codeEl.textContent = "-"; note.textContent = "Couldn't make a code. Try again."; return; }
       codeEl.textContent = j.code;
       if (j.handle) to.textContent = "@" + j.handle;
       note.textContent = j.comment ? "This one starts from a comment. In a test the first message comes as a normal DM instead of a reply to your comment." : "";

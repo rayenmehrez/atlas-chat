@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// FewChat's installer. One command takes a fresh copy of this folder to a live FewChat on your own Cloudflare account:
+// AtlasChat's installer. One command takes a fresh copy of this folder to a live AtlasChat on your own Cloudflare account:
 //
 //   npm run setup     the guided setup. Safe to run again at any time: it picks up where it stopped.
 //   npm run check     looks at your live install and says, in plain words, what works and what doesn't.
@@ -15,7 +15,7 @@
 
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, unlinkSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
@@ -122,20 +122,20 @@ function openInBrowser(url) {
 // ------------------------------------------------------------------------------------- your settings, kept in JSON
 
 const BLANK = {
-  instagram_handle: "",
-  business_name: "",
+  instagram_handle: "rayen.mhz",
+  business_name: "Atlas AI",
   contact_email: "",
-  website: "",
+  website: "rayenmehrez.me",
   link: "",
-  community_name: "",
+  community_name: "Atlas AI Academy",
   skool_slugs: [],
-  worker_name: "fewchat",
+  worker_name: "atlas-chat",
   cloudflare_account_id: "",
   database_id: "",
   instagram_app_id: "",
   url: "",
 };
-// A copy of FewChat from before this installer kept its settings inside wrangler.jsonc and src/brand.ts themselves.
+// A copy from before this installer kept its settings inside wrangler.jsonc and src/brand.ts themselves.
 // Read them out once, so an older install carries on without answering anything again.
 function adopt() {
   const c = { ...BLANK };
@@ -146,16 +146,17 @@ function adopt() {
   const fromW = (key) => real(w.match(new RegExp(`"${key}":\\s*"([^"]*)"`))?.[1]);
   const fromB = (key) => real(b.match(new RegExp(`export const ${key} = "([^"]*)"`))?.[1]);
   c.worker_name = fromW("name") || c.worker_name;
-  c.cloudflare_account_id = fromW("account_id");
-  c.database_id = fromW("database_id");
-  c.instagram_app_id = fromW("META_IG_APP_ID");
-  c.link = fromW("SKOOL_LINK");
-  c.url = fromB("ORIGIN");
-  c.instagram_handle = fromB("IG_HANDLE");
-  c.business_name = fromB("BUSINESS");
-  c.website = fromB("SITE");
-  c.contact_email = fromB("CONTACT_EMAIL");
-  c.community_name = fromB("COMMUNITY");
+  c.cloudflare_account_id = fromW("account_id") || c.cloudflare_account_id;
+  c.database_id = fromW("database_id") || c.database_id;
+  c.instagram_app_id = fromW("META_IG_APP_ID") || c.instagram_app_id;
+  c.link = fromW("SKOOL_LINK") || c.link;
+  c.url = fromB("ORIGIN") || c.url;
+  // A missing or still-placeholder file must not wipe the defaults in BLANK.
+  c.instagram_handle = fromB("IG_HANDLE") || c.instagram_handle;
+  c.business_name = fromB("BUSINESS") || c.business_name;
+  c.website = fromB("SITE") || c.website;
+  c.contact_email = fromB("CONTACT_EMAIL") || c.contact_email;
+  c.community_name = fromB("COMMUNITY") || c.community_name;
   c.skool_slugs = [...(b.match(/export const SKOOL_GROUPS[^=]*= \[([^\]]*)\]/)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]).filter(real);
   if (c.instagram_handle || c.database_id) saveConfig(c);
   return c;
@@ -209,12 +210,12 @@ const ts = (s) => JSON.stringify(String(s)); // a safe TypeScript / JSON string 
 // Writes wrangler.jsonc and src/brand.ts from their templates. A value you haven't given yet stays a REPLACE marker,
 // which is what `npm run deploy` looks for before it lets anything go live.
 function build(c) {
-  const name = c.worker_name || "fewchat";
+  const name = c.worker_name || "atlas-chat";
   let w = readFileSync(at("templates", "wrangler.jsonc"), "utf8");
   w = w
-    .replace('"name": "fewchat"', `"name": ${ts(name)}${c.cloudflare_account_id ? `,\n  "account_id": ${ts(c.cloudflare_account_id)}` : ""}`)
-    .replace('"database_name": "fewchat"', `"database_name": ${ts(name)}`)
-    .replaceAll('"queue": "fewchat-send"', `"queue": ${ts(`${name}-send`)}`);
+    .replace('"name": "atlas-chat"', `"name": ${ts(name)}${c.cloudflare_account_id ? `,\n  "account_id": ${ts(c.cloudflare_account_id)}` : ""}`)
+    .replace('"database_name": "atlas-chat"', `"database_name": ${ts(name)}`)
+    .replaceAll('"queue": "atlas-chat-send"', `"queue": ${ts(`${name}-send`)}`);
   if (c.database_id) w = w.replace("REPLACE_D1_DATABASE_ID", c.database_id);
   if (c.instagram_app_id) w = w.replace("REPLACE_INSTAGRAM_APP_ID", c.instagram_app_id);
   if (c.link) w = w.replace("https://REPLACE_YOUR_LINK", c.link);
@@ -225,7 +226,7 @@ function build(c) {
   const set = (marker, value) => {
     if (value) b = b.replace(`"${marker}"`, ts(value));
   };
-  set("https://fewchat.REPLACE-SUBDOMAIN.workers.dev", c.url);
+  set("https://atlas-chat.REPLACE-SUBDOMAIN.workers.dev", c.url);
   set("REPLACE_IG_HANDLE", handle);
   set("REPLACE_BUSINESS_NAME", c.business_name);
   set("REPLACE_WEBSITE", c.website || (handle ? `instagram.com/${handle}` : ""));
@@ -289,7 +290,7 @@ async function signIn(c) {
   let who = wrangler(["whoami"]);
   if (!who.ok || /not authenticated|not logged in/i.test(who.out)) {
     say("  A browser tab opens now. Sign in to Cloudflare (or create a free account) and click " + bold("Allow") + ".");
-    info("Cloudflare is where FewChat runs. Nothing is charged for signing in.");
+    info("Cloudflare is where AtlasChat runs. Nothing is charged for signing in.");
     wrangler(["login"], { show: true });
     who = wrangler(["whoami"]);
     if (!who.ok || /not authenticated|not logged in/i.test(who.out)) {
@@ -299,13 +300,13 @@ async function signIn(c) {
   ok("Signed in to Cloudflare");
   const list = accounts(who.out);
   if (c.cloudflare_account_id || process.env.CLOUDFLARE_ACCOUNT_ID || list.length <= 1) return;
-  // More than one Cloudflare account on this login: FewChat has to know which one to live in.
+  // More than one Cloudflare account on this login: AtlasChat has to know which one to live in.
   const wanted = flag("account");
   let pick = list.find((a) => a.id === wanted || a.name === wanted);
   if (!pick && TTY) {
     say("  Your login can use more than one Cloudflare account:");
     list.forEach((a, i) => say(`    ${i + 1}. ${a.name}`));
-    const n = await ask("Which one should FewChat run in? Type its number.", { check: (v) => (list[Number(v) - 1] ? null : `Type a number from 1 to ${list.length}.`) });
+    const n = await ask("Which one should AtlasChat run in? Type its number.", { check: (v) => (list[Number(v) - 1] ? null : `Type a number from 1 to ${list.length}.`) });
     pick = list[Number(n) - 1];
   }
   if (!pick) {
@@ -355,7 +356,8 @@ function ensureQueue(c) {
   throw fail([
     `Cloudflare didn't create the send queue "${name}":`,
     `      ${reason(r.out)}`,
-    "If it says queues aren't on your plan: open dash.cloudflare.com → Workers & Pages → Plans, switch to Workers Paid ($5 a month), then run `npm run setup` again.",
+    "Queues are included on the Workers Free plan (10,000 operations a day). Do not switch to Workers Paid ($5 a month) unless the error above says the account must, and you have decided to pay.",
+    "Otherwise run `npm run setup` again. What each binding costs is in docs/HOW-IT-WORKS.md, under What it costs to run.",
   ]);
 }
 
@@ -446,8 +448,8 @@ async function deploy(c, label) {
   if (!r.ok) {
     const hints = [];
     if (/verify your email|email.*verif/i.test(r.out)) hints.push("Cloudflare wants your email address verified first: click the link in the email it sent you, then run `npm run setup` again.");
-    if (/durable objects|paid plan|10097|plan/i.test(r.out)) hints.push("If this mentions your plan: dash.cloudflare.com → Workers & Pages → Plans → Workers Paid ($5 a month), then run `npm run setup` again.");
-    throw fail([`Putting FewChat live failed (${label}):`, `      ${reason(r.out)}`, ...hints]);
+    if (/durable objects|paid plan|10097/i.test(r.out)) hints.push("This app's Durable Object uses SQLite storage, which the Workers Free plan includes. Do not switch to Workers Paid ($5 a month) unless Cloudflare's message says the account must, and you have decided to pay. See docs/HOW-IT-WORKS.md, What it costs to run.");
+    throw fail([`Putting AtlasChat live failed (${label}):`, `      ${reason(r.out)}`, ...hints]);
   }
   const url = r.out.match(/https:\/\/[a-z0-9.-]+\.workers\.dev/i)?.[0] ?? null;
   return url;
@@ -467,10 +469,10 @@ async function get(url, { timeout = 15_000, headers } = {}) {
 async function webhookAnswers(c) {
   const token = readEnv().META_VERIFY_TOKEN;
   if (!c.url || !token) return false;
-  const q = new URLSearchParams({ "hub.mode": "subscribe", "hub.verify_token": token, "hub.challenge": "fewchat-ok" });
+  const q = new URLSearchParams({ "hub.mode": "subscribe", "hub.verify_token": token, "hub.challenge": "atlaschat-ok" });
   for (let i = 0; i < 6; i++) {
     const r = await get(`${c.url}/meta?${q}`);
-    if (r.status === 200 && r.text === "fewchat-ok") return true;
+    if (r.status === 200 && r.text === "atlaschat-ok") return true;
     await new Promise((res) => setTimeout(res, 5000)); // a brand-new workers.dev address takes a moment to answer
   }
   return false;
@@ -499,7 +501,7 @@ function metaSteps(c) {
   const host = c.url.replace(/^https:\/\//, "");
   return [
     `1. Open https://developers.facebook.com/apps and log in with the Facebook account that manages your Instagram. If it asks you to register as a developer, say yes (free).`,
-    `2. Click **Create app**. Name it anything (for example "FewChat"). When it asks what the app is for, choose **Other**, then the type **Business**.`,
+    `2. Click **Create app**. Name it anything (for example "AtlasChat"). When it asks what the app is for, choose **Other**, then the type **Business**.`,
     `3. On the app's page, find **Instagram** in the product list and click **Set up**. Pick **API setup with Instagram login**.`,
     `4. That page shows an **Instagram app ID** and an **Instagram app secret** (click Show). Setup asks you for both at the end: keep the tab open.`,
     `5. Under **Configure webhooks** paste these two, click **Verify and save**, then switch on every field in the list below it:\n   - Callback URL: \`${c.url}/meta\`\n   - Verify token: \`${readEnv().META_VERIFY_TOKEN ?? "(in .env: META_VERIFY_TOKEN)"}\`\n   - Fields: ${WEBHOOK_FIELDS.map((f) => `\`${f}\``).join(", ")}`,
@@ -511,7 +513,7 @@ function metaSteps(c) {
 }
 function writeSheet(c) {
   const env = readEnv();
-  const text = `# My FewChat setup
+  const text = `# My AtlasChat setup
 
 **Keep this file to yourself.** It holds your console password. Git ignores it, so it never leaves this computer.
 It is rewritten every time you run \`npm run setup\`.
@@ -533,7 +535,18 @@ When that's done, run \`npm run setup\` again: it asks for the Instagram app ID 
 
 ## Connect your Instagram account (after the Meta app)
 
-1. On a computer, open ${c.url}/login and click **Log in with Instagram**.
+The usual way is Log in with Instagram. That is the OAuth flow: it exchanges a short code for a 60-day token, saves it in the database, subscribes to your DMs and comments, and renews the token weekly.
+
+If you already have a long-lived Instagram user token from this same Meta app, you can skip the button:
+
+1. Put it in \`.env\` as \`IG_ACCESS_TOKEN=\` (never in chat, never in git).
+2. Run \`npm run setup\` again. Setup checks the token is for @${c.instagram_handle}, saves it in the database, and subscribes to DMs and comments.
+
+A token from a different app, or a short-lived token, will send for a while and then fail the weekly refresh. Log in with Instagram avoids that.
+
+Or, on a computer:
+
+1. Open ${c.url}/login and click **Log in with Instagram**.
 2. Log in as @${c.instagram_handle} and approve the three permissions. That connects your account.
 3. Run \`npm run check\`: it tells you whether everything is working.
 
@@ -542,7 +555,7 @@ If the button gives an error, log in with the password instead and click **Conne
 ## Useful later
 
 - \`npm run check\`: is everything working? What's wrong, in plain words.
-- \`npm run update\`: get the newest version of FewChat.
+- \`npm run update\`: get the newest version of AtlasChat.
 - Your settings: \`fewchat.config.json\`. Your passwords and keys: \`.env\`. Change either, then run \`npm run setup\`.
 `;
   writeFileSync(SHEET, text);
@@ -555,14 +568,20 @@ async function basics(c) {
   for (const [k, v] of Object.entries(given)) if (v && v !== "true") c[k] = v;
   const need = ["instagram_handle", "business_name", "contact_email"].filter((k) => !c[k]);
   if (need.length && !TTY) {
+    const bits = [];
+    if (!c.instagram_handle) bits.push("--handle=yourhandle");
+    if (!c.business_name) bits.push('--business="Your Name or Company"');
+    if (!c.contact_email) bits.push("--email=you@example.com");
     throw waitFor([
-      "I need three answers before I can start. Pass them like this (quotes around anything with a space):",
-      '  npm run setup -- --handle=yourhandle --business="Your Name or Company" --email=you@example.com',
-      "Optional: --website=example.com   --link=https://the-link-your-dms-send",
+      "I still need an answer before I can start. Pass it like this (quotes around anything with a space):",
+      `  npm run setup -- ${bits.join(" ")}`,
+      `Already set for this install: @${c.instagram_handle || "?"} (${c.business_name || "?"}${c.website ? `, ${c.website}` : ""}).`,
+      "Optional overrides: --handle=  --business=  --website=  --link=https://the-link-your-dms-send  --name=atlas-chat",
+      "The contact email is shown on the privacy page. Do not commit it. The DM link stays a placeholder until you pass --link=.",
     ]);
   }
   if (need.length) {
-    say("  Three quick questions. Your answers are saved in fewchat.config.json and you can change them later.");
+    say("  A couple of questions. Your answers are saved in fewchat.config.json and you can change them later.");
     say();
   }
   if (!c.instagram_handle) c.instagram_handle = await ask("What's your Instagram username?", { check: (v) => (/^@?[a-z0-9._]{1,30}$/i.test(cleanHandle(v)) ? null : "That doesn't look like an Instagram username. Type it without spaces, like yourhandle.") });
@@ -571,9 +590,9 @@ async function basics(c) {
   if (!c.contact_email) c.contact_email = await ask("An email people can reach you at? " + dim("(also shown on that privacy page)"), { check: (v) => (/^\S+@\S+\.\S+$/.test(v) ? null : "That doesn't look like an email address.") });
   if (!c.website && TTY && need.length) c.website = await ask("Your website? " + dim("(press Enter to skip)"));
   c.website = cleanSite(c.website || "");
-  if (!c.link) {
+  if (!c.link && TTY && need.length) {
     const profile = `https://www.instagram.com/${c.instagram_handle}/`;
-    c.link = TTY && need.length ? await ask("One link your DMs can send with a single tap: your site, shop or community. " + dim("(you can change it any time in Settings)"), { fallback: profile, check: (v) => (/^https:\/\/\S+\.\S+$/.test(v) ? null : "Paste the full link, starting with https://") }) : profile;
+    c.link = await ask("One link your DMs can send with a single tap: your site, shop or community. " + dim("(you can change it any time in Settings)"), { fallback: profile, check: (v) => (/^https:\/\/\S+\.\S+$/.test(v) ? null : "Paste the full link, starting with https://") });
   }
   if (!c.skool_slugs?.length && skoolSlug(c.link)) c.skool_slugs = [skoolSlug(c.link)];
   if (!/^[a-z0-9][a-z0-9-]{0,50}$/.test(c.worker_name)) throw fail(`"${c.worker_name}" can't be a Worker name: use lowercase letters, numbers and dashes.`);
@@ -609,12 +628,65 @@ async function metaApp(c) {
   return true;
 }
 
+// A long-lived Instagram user token from .env, stored in D1. The Worker reads ig_token from the database
+// (and refreshes it there); it is not a Worker secret. OAuth via Log in with Instagram does the same write.
+async function storeAccessToken(c) {
+  const token = (readEnv().IG_ACCESS_TOKEN ?? "").trim();
+  if (!token) return false;
+  if (!/^[A-Za-z0-9._-]{20,}$/.test(token)) {
+    throw fail(["IG_ACCESS_TOKEN doesn't look like an Instagram access token.", "Paste the long-lived token on that line in .env, or clear the line and use Log in with Instagram."]);
+  }
+  const me = await instagram(token, "/me?fields=username,user_id");
+  if (!me?.username) {
+    throw fail([
+      "Instagram refused IG_ACCESS_TOKEN.",
+      "Use a long-lived user token from this same Meta app (Instagram Login), with permission to read the account and to manage messages and comments.",
+      "A short-lived token, or a token from a different app, will not refresh weekly. Clear the line and use Log in with Instagram instead.",
+    ]);
+  }
+  if (String(me.username).toLowerCase() !== String(c.instagram_handle).toLowerCase()) {
+    throw fail([`IG_ACCESS_TOKEN belongs to @${me.username}. This install is for @${c.instagram_handle}.`]);
+  }
+  const lit = (s) => `'${String(s).replace(/'/g, "''")}'`;
+  const scratch = at(".wrangler", "ig-token.sql");
+  mkdirSync(dirname(scratch), { recursive: true });
+  const rows = [
+    `INSERT INTO settings (key, value) VALUES ('ig_token', ${lit(token)}) ON CONFLICT(key) DO UPDATE SET value = excluded.value;`,
+    `INSERT INTO settings (key, value) VALUES ('ig_token_at', ${lit(String(Date.now()))}) ON CONFLICT(key) DO UPDATE SET value = excluded.value;`,
+  ];
+  if (me.user_id != null && String(me.user_id) !== "") {
+    rows.push(`INSERT INTO settings (key, value) VALUES ('ig_account_id', ${lit(String(me.user_id))}) ON CONFLICT(key) DO UPDATE SET value = excluded.value;`);
+  }
+  writeFileSync(scratch, `${rows.join("\n")}\n`);
+  let stored;
+  try {
+    stored = runSqlFile(c, scratch);
+  } finally {
+    try {
+      unlinkSync(scratch);
+    } catch {
+      // already gone
+    }
+  }
+  if (!stored.ok) throw fail(["Couldn't store the Instagram access token in the database.", `      ${reason(stored.out).replaceAll(token, "[token]")}`]);
+  const sub = await fetch(
+    `https://graph.instagram.com/v26.0/me/subscribed_apps?${new URLSearchParams({ subscribed_fields: "messages,messaging_postbacks,messaging_seen,comments,live_comments", access_token: token })}`,
+    { method: "POST" },
+  ).catch(() => null);
+  if (!sub?.ok) warn("The token is saved, but subscribing to DMs and comments failed. Use Connect Instagram in the console, or run setup again.");
+  else ok("Subscribed to DMs and comments");
+  ok(`Stored the Instagram access token for @${me.username}`);
+  return true;
+}
+
 async function connectInstagram(c) {
+  await storeAccessToken(c);
   let s = settings(c);
   if (!s?.ig_token) {
     say(`  Last step. On this computer, open ${bold(`${c.url}/login`)}`);
     say(`  Click ${bold("Log in with Instagram")}, log in as @${c.instagram_handle} and approve the three permissions.`);
-    if (!TTY) throw waitFor(["Waiting on you to connect Instagram (see above). Then run `npm run check`."]);
+    say("  Or put a long-lived Instagram user token in .env as IG_ACCESS_TOKEN= and run setup again. It is saved in the database, not as a Worker secret.");
+    if (!TTY) throw waitFor(["Waiting on you to connect Instagram (see above). Then run `npm run check`.", "Or set IG_ACCESS_TOKEN in .env (see .env.example) and run `npm run setup` again."]);
     openInBrowser(`${c.url}/login`);
     await enter("When Instagram is connected, come back here.");
     s = settings(c);
@@ -622,7 +694,7 @@ async function connectInstagram(c) {
   }
   const me = await instagram(s.ig_token, "/me?fields=username");
   ok(`Instagram is connected${me?.username ? ` as @${me.username}` : ""}`);
-  if (s.webhook_at) return ok(`Instagram is sending FewChat your messages (last one ${ago(Number(s.webhook_at))})`);
+  if (s.webhook_at) return ok(`Instagram is sending AtlasChat your messages (last one ${ago(Number(s.webhook_at))})`);
   if (!TTY) return warn("No message has arrived from Instagram yet. Send your account a DM from another account, then run `npm run check`.");
   say("  Now the real test: from " + bold("another") + " Instagram account (a friend's, or a spare), send your account a DM.");
   await enter("Sent it?");
@@ -636,7 +708,7 @@ async function connectInstagram(c) {
 
 async function setup() {
   say();
-  say(bold("📫 FewChat setup"));
+  say(bold("AtlasChat setup"));
   say(dim("   Sets everything up on your own Cloudflare account. Safe to stop and run again: it continues where it left off."));
 
   step("Getting this folder ready");
@@ -656,14 +728,14 @@ async function setup() {
     return;
   }
 
-  step("Your Cloudflare account", "Cloudflare runs FewChat for you. The free plan is enough to start.");
+  step("Your Cloudflare account", "Cloudflare runs AtlasChat for you. The free plan is enough to start.");
   await signIn(c);
   if (!c.url && workerExists(c.worker_name) && !flag("replace")) {
     throw fail([
       `Your Cloudflare account already has a Worker called "${c.worker_name}", and this folder didn't create it.`,
       "Going on would replace it. Pick one:",
       `  • A different name for this install:   npm run setup -- --name=${c.worker_name}-2`,
-      "  • It's an old FewChat you want to keep using from this folder:   npm run setup -- --replace",
+      "  • It's an old AtlasChat you want to keep using from this folder:   npm run setup -- --replace",
     ]);
   }
 
@@ -685,7 +757,7 @@ async function setup() {
   }
   ok(made ? `Created ${made} and saved them in .env` : "Already in .env");
 
-  step("Putting FewChat live");
+  step("Putting AtlasChat live");
   const first = !c.url;
   const url = await deploy(c, "first deploy");
   if (url && url !== c.url) {
@@ -694,13 +766,13 @@ async function setup() {
     build(c);
   }
   if (!c.url) {
-    if (!TTY) throw fail(["FewChat was deployed, but I couldn't read its address from Cloudflare.", 'Find it on dash.cloudflare.com → Workers & Pages → your Worker (it ends in .workers.dev), put it in fewchat.config.json as "url", then run `npm run setup` again.']);
-    c.url = await ask("FewChat is live, but I couldn't read its address. Paste it from dash.cloudflare.com → Workers & Pages (it ends in .workers.dev).", { check: (v) => (/^https:\/\/[a-z0-9.-]+$/i.test(v) ? null : "Paste the full address, starting with https://") });
+    if (!TTY) throw fail(["AtlasChat was deployed, but I couldn't read its address from Cloudflare.", 'Find it on dash.cloudflare.com → Workers & Pages → your Worker (it ends in .workers.dev), put it in fewchat.config.json as "url", then run `npm run setup` again.']);
+    c.url = await ask("AtlasChat is live, but I couldn't read its address. Paste it from dash.cloudflare.com → Workers & Pages (it ends in .workers.dev).", { check: (v) => (/^https:\/\/[a-z0-9.-]+$/i.test(v) ? null : "Paste the full address, starting with https://") });
     saveConfig(c);
     build(c);
   }
   pushSecrets(c);
-  if (first) await deploy(c, "second deploy"); // the first one told us the address; this one puts it into FewChat's own links
+  if (first) await deploy(c, "second deploy"); // the first one told us the address; this one puts it into AtlasChat's own links
   ok(`Live at ${bold(c.url)}`);
   writeSheet(c);
   if (await webhookAnswers(c)) ok("It answers Instagram's webhook check");
@@ -713,13 +785,13 @@ async function setup() {
   if (left.length) throw fail(["Something is still not filled in:", ...left.map((l) => `  ${l}`)]);
   await deploy(c, "final deploy");
   writeSheet(c);
-  ok("Meta app connected to FewChat");
+  ok("Meta app connected to AtlasChat");
 
   step("Connect your Instagram account");
   await connectInstagram(c);
 
   say();
-  say(bold(green("🎉 FewChat is set up.")));
+  say(bold(green("🎉 AtlasChat is set up.")));
   say(`   Console:   ${c.url}/admin/dashboard`);
   say(`   Next:      make your first automation → README.md, "Your first automation"`);
   say(`   Any time:  npm run check   ${dim("(is everything working?)")}`);
@@ -730,7 +802,7 @@ async function setup() {
 
 async function check() {
   say();
-  say(bold("📫 FewChat check"));
+  say(bold("AtlasChat check"));
   const c = readConfig();
   build(c);
   let problems = 0;
@@ -751,7 +823,7 @@ async function check() {
   }
   ok("Signed in to Cloudflare");
   if (!c.url || !c.database_id) {
-    no("FewChat hasn't been put live yet", "Run `npm run setup`.");
+    no("AtlasChat hasn't been put live yet", "Run `npm run setup`.");
     return done(problems);
   }
 
@@ -817,10 +889,10 @@ function done(problems) {
 
 async function update() {
   say();
-  say(bold("📫 FewChat update"));
+  say(bold("AtlasChat update"));
   const c = readConfig();
   build(c);
-  if (!c.url || !c.database_id || placeholders().length) throw fail("FewChat isn't set up yet in this folder. Run `npm run setup`.");
+  if (!c.url || !c.database_id || placeholders().length) throw fail("AtlasChat isn't set up yet in this folder. Run `npm run setup`.");
   step("Database");
   migrate(c);
   step("Putting the new version live");
@@ -834,7 +906,7 @@ async function update() {
 
 const major = Number(process.versions.node.split(".")[0]);
 if (major < 22) {
-  console.error(`FewChat needs Node 22 or newer (you have ${process.versions.node}). Install the current version from https://nodejs.org, then run this again.`);
+  console.error(`AtlasChat needs Node 22 or newer (you have ${process.versions.node}). Install the current version from https://nodejs.org, then run this again.`);
   process.exit(1);
 }
 
@@ -845,7 +917,7 @@ try {
     build(readConfig());
   } else {
     if (!existsSync(WRANGLER)) {
-      say("Installing FewChat's tools (about a minute, once)…");
+      say("Installing AtlasChat's tools (about a minute, once)…");
       // `npm ci` installs exactly what package-lock.json lists and never rewrites it, so the folder stays clean for updates.
       const r = spawnSync(existsSync(at("package-lock.json")) ? "npm ci --no-audit --no-fund" : "npm install --no-audit --no-fund", { cwd: ROOT, stdio: "inherit", shell: true });
       if (r.status !== 0) throw fail("Installing the tools failed (see above). Check your internet connection and run `npm run setup` again.");

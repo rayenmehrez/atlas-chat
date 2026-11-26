@@ -17,7 +17,7 @@ import { applyUpdate, mediaRoute, saveParts, saveReplyTo } from "./attachments";
 import { legalPage } from "./pages";
 import { saveProfile } from "./profiles";
 import { withSettings } from "./settings";
-import { FAVICON, FAVICON_SVG } from "./theme";
+import { APP_NAME, FAVICON, FAVICON_SVG } from "./theme";
 import { syncJoins } from "./joins";
 import { syncRoster } from "./roster";
 import { refreshMoves } from "./moves";
@@ -117,7 +117,7 @@ async function handleAuth(req: Request, env: Env, pathname: string): Promise<Res
       if (owner && who !== owner) return withCleared(loginPage("That Instagram account isn't the one this setter runs.", req));
       // The very first sign-in on a fresh install claims it, so only the account it was set up for (brand.ts) may.
       if (!owner && (me.username ?? "").toLowerCase() !== IG_HANDLE.toLowerCase()) {
-        return withCleared(loginPage(`This FewChat is set up for @${IG_HANDLE}. Log in with that Instagram account.`, req));
+        return withCleared(loginPage(`This ${APP_NAME} is set up for @${IG_HANDLE}. Log in with that Instagram account.`, req));
       }
       await setSetting(env.DB, "ig_token", token); // a fresh 60-day token is a free bonus of logging in
       await setSetting(env.DB, "ig_token_at", String(Date.now()));
@@ -231,7 +231,7 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
         return Response.redirect(`${new URL(req.url).origin}/login`, 302);
       }
       if (!who) {
-        return new Response("login required", { status: 401, headers: { "WWW-Authenticate": 'Basic realm="fewchat"' } });
+        return new Response("login required", { status: 401, headers: { "WWW-Authenticate": `Basic realm="${APP_NAME}"` } });
       }
       if (pathname === "/admin/password") return Response.redirect(`${new URL(req.url).origin}/admin/dashboard`, 302);
       if (pathname.startsWith("/admin/media/")) return mediaRoute(env.DB, req, pathname, who === "review");

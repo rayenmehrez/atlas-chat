@@ -6,7 +6,7 @@ import { IG_HANDLE } from "./brand";
 import * as db from "./db";
 import { graph, hmacHex } from "./meta";
 import type { Env } from "./setter";
-import { FAVICON, LOGO } from "./theme";
+import { APP_NAME, FAVICON, LOGO } from "./theme";
 
 const COOKIE = "dms_session";
 const TTL_S = 90 * 24 * 60 * 60;
@@ -52,23 +52,24 @@ export function loginPage(error: string | null = null, req: Request | null = nul
 <input name="password" type="password" autocomplete="current-password" placeholder="Password" required aria-label="Password">
 <button>Log in</button></form>`;
   return new Response(
-    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Log in · FewChat</title>${FAVICON}
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Log in · ${APP_NAME}</title>${FAVICON}
 <style>
-:root{--bg:#fff;--ink:#000;--mut:#737373;--line:#dbdbdb}
-@media (prefers-color-scheme:dark){:root{--bg:#000;--ink:#f5f5f5;--mut:#a8a8a8;--line:#262626}}
+:root{--bg:#f4f7f6;--ink:#14211e;--mut:#5c6b66;--line:#d5e0dc;--brand:#1A3C34}
+@media (prefers-color-scheme:dark){:root{--bg:#0a0a0a;--ink:#f5f5f5;--mut:#a8a8a8;--line:#262626;--brand:#1A3C34}}
 body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font:14px/18px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
 main{width:min(350px,calc(100vw - 32px));text-align:center;padding:40px 0}
-.logo{width:56px;height:56px;margin:0 auto 18px;display:grid;place-items:center;font:52px/1 "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+.logo{width:56px;height:56px;margin:0 auto 18px}.logo svg{width:56px;height:56px;display:block}
 h1{font-size:22px;line-height:28px;margin:0 0 6px}p{color:var(--mut);margin:0 0 28px}
-a.btn{display:flex;align-items:center;justify-content:center;gap:10px;height:44px;border-radius:10px;background:#0095f6;color:#fff;font-weight:600;text-decoration:none}
-a.btn:hover{background:#1877f2}.err{color:#ed4956;margin:0 0 18px}.alt{display:block;margin-top:22px;color:var(--mut);font-size:12px;text-decoration:none}
+a.btn{display:flex;align-items:center;justify-content:center;gap:10px;height:44px;border-radius:10px;background:var(--brand);color:#fff;font-weight:600;text-decoration:none}
+a.btn:hover{background:#123029}.err{color:#ed4956;margin:0 0 18px}.alt{display:block;margin-top:22px;color:var(--mut);font-size:12px;text-decoration:none}
 .pw{display:grid;gap:8px}.pw input{height:40px;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);padding:0 12px;font:inherit}
-.pw input[readonly]{color:var(--mut)}.pw button{height:44px;border:0;border-radius:10px;background:#0095f6;color:#fff;font:600 14px/1 inherit;cursor:pointer}
+.pw input[readonly]{color:var(--mut)}.pw button{height:44px;border:0;border-radius:10px;background:var(--brand);color:#fff;font-family:inherit;font-weight:600;font-size:14px;line-height:1;cursor:pointer}
+@media (prefers-color-scheme:dark){a.btn,.pw button{box-shadow:inset 0 0 0 1px #C6E6D6}}
 .or{display:flex;align-items:center;gap:14px;color:var(--mut);font-size:12px;font-weight:600;margin:20px 0}.or:before,.or:after{content:"";flex:1;height:1px;background:var(--line)}
 .hint{color:var(--mut);font-size:12px;margin:10px 0 0}
 </style></head><body><main>
 <div class="logo" aria-hidden="true">${LOGO}</div>
-<h1>FewChat</h1><p>${phone ? "Log in to FewChat." : "Log in with the Instagram account FewChat runs on."}</p>
+<h1>${APP_NAME}</h1><p>${phone ? `Log in to ${APP_NAME}.` : `Log in with the Instagram account ${APP_NAME} runs on.`}</p>
 ${error ? `<p class="err">${error.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)}</p>` : ""}
 ${phone ? `${pw}<p class="hint">You stay logged in for 90 days. Your phone can save this and fill it with Face ID.</p>` : `<div class="ig">${ig}<div class="or">OR</div></div>${pw}`}
 </main><script>/* iPads and "desktop site" phones look like a Mac to the server: drop the Instagram button on touch screens */

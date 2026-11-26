@@ -1,6 +1,6 @@
 # AI replies (beta)
 
-FewChat can answer DMs for you with Claude, in your own voice, from a script and facts you write. It is optional and still a work in progress. Everything else in FewChat works without it, and it stays off until you finish the steps below.
+AtlasChat can answer DMs for you with Claude, in your own voice, from a script and facts you write. It is optional and still a work in progress. Everything else in AtlasChat works without it, and it stays off until you finish the steps below.
 
 **What it's built for:** selling one thing in the DMs, such as a paid community or a course. It gets to know the person, asks a few questions, and sends your link when they're a fit. It doesn't book calls and it never offers discounts.
 
