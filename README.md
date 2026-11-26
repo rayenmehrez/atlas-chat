@@ -10,7 +10,7 @@ This folder is already aimed at **@rayen.mhz**, the business **Atlas AI**, the s
 
 ![AtlasChat's Home page: messages, reach, reply rate and top automations](assets/screenshots/home.png)
 
-<sub>Screenshots are the upstream console with made-up sample data. This fork's console is named AtlasChat and uses forest green (#1A3C34). Open it on your own computer with `npm run preview`.</sub>
+<sub>Screenshots are the upstream console with made-up sample data. This fork's console is named AtlasChat and uses the Atlas navy and blue. Open it on your own computer with `npm run preview`.</sub>
 
 ## What it does
 

@@ -6,7 +6,7 @@ import { IG_HANDLE } from "./brand";
 import * as db from "./db";
 import { graph, hmacHex } from "./meta";
 import type { Env } from "./setter";
-import { APP_NAME, FAVICON, LOGO } from "./theme";
+import { APP_NAME, FAVICON, FONT, LOGO } from "./theme";
 
 const COOKIE = "dms_session";
 const TTL_S = 90 * 24 * 60 * 60;
@@ -52,19 +52,19 @@ export function loginPage(error: string | null = null, req: Request | null = nul
 <input name="password" type="password" autocomplete="current-password" placeholder="Password" required aria-label="Password">
 <button>Log in</button></form>`;
   return new Response(
-    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Log in · ${APP_NAME}</title>${FAVICON}
+    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Log in · ${APP_NAME}</title>${FONT}${FAVICON}
 <style>
-:root{--bg:#f4f7f6;--ink:#14211e;--mut:#5c6b66;--line:#d5e0dc;--brand:#1A3C34}
-@media (prefers-color-scheme:dark){:root{--bg:#0a0a0a;--ink:#f5f5f5;--mut:#a8a8a8;--line:#262626;--brand:#1A3C34}}
-body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font:14px/18px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-main{width:min(350px,calc(100vw - 32px));text-align:center;padding:40px 0}
-.logo{width:56px;height:56px;margin:0 auto 18px}.logo svg{width:56px;height:56px;display:block}
-h1{font-size:22px;line-height:28px;margin:0 0 6px}p{color:var(--mut);margin:0 0 28px}
-a.btn{display:flex;align-items:center;justify-content:center;gap:10px;height:44px;border-radius:10px;background:var(--brand);color:#fff;font-weight:600;text-decoration:none}
-a.btn:hover{background:#123029}.err{color:#ed4956;margin:0 0 18px}.alt{display:block;margin-top:22px;color:var(--mut);font-size:12px;text-decoration:none}
-.pw{display:grid;gap:8px}.pw input{height:40px;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);padding:0 12px;font:inherit}
-.pw input[readonly]{color:var(--mut)}.pw button{height:44px;border:0;border-radius:10px;background:var(--brand);color:#fff;font-family:inherit;font-weight:600;font-size:14px;line-height:1;cursor:pointer}
-@media (prefers-color-scheme:dark){a.btn,.pw button{box-shadow:inset 0 0 0 1px #C6E6D6}}
+:root{--navy:#0B1F4B;--blue:#2F6BF2;--blue2:#1D4ED8;--bg:#F3F7FF;--card:#fff;--ink:#0B1F4B;--mut:#5F729B;--line:#E2E9F6;--line2:#C7D5EF}
+body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--ink);font:14px/1.45 "Inter Tight",Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+main{width:min(380px,calc(100vw - 32px));text-align:center;padding:36px 28px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 30px rgba(11,31,75,.06)}
+.logo{margin:0 auto 16px;display:grid;place-items:center}
+.mark{width:48px;height:48px;border-radius:14px;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:700;font-size:24px}
+h1{font-size:22px;line-height:28px;font-weight:700;letter-spacing:-.03em;margin:0 0 6px}p{color:var(--mut);margin:0 0 28px}
+a.btn{display:flex;align-items:center;justify-content:center;gap:10px;height:44px;border-radius:8px;background:var(--blue);color:#fff;font-weight:700;text-decoration:none}
+a.btn:hover{background:var(--blue2)}.err{color:#E03121;margin:0 0 18px}.alt{display:block;margin-top:22px;color:var(--mut);font-size:12px;text-decoration:none}
+.pw{display:grid;gap:8px}.pw input{height:40px;box-sizing:border-box;border:1px solid var(--line2);border-radius:8px;background:#fff;color:var(--ink);padding:0 12px;font:inherit}
+.pw input[readonly]{color:var(--mut)}.pw button{height:44px;border:0;border-radius:8px;background:var(--blue);color:#fff;font:700 14px/1 inherit;cursor:pointer}
+.pw button:hover{background:var(--blue2)}
 .or{display:flex;align-items:center;gap:14px;color:var(--mut);font-size:12px;font-weight:600;margin:20px 0}.or:before,.or:after{content:"";flex:1;height:1px;background:var(--line)}
 .hint{color:var(--mut);font-size:12px;margin:10px 0 0}
 </style></head><body><main>

@@ -113,7 +113,7 @@ describe("instagram access token on Settings", () => {
     expect(html).toContain("Save token");
     expect(html).toContain("Verify connection");
     expect(html).toContain("Remove token");
-    expect(html).toContain("#1A3C34");
+    expect(html).toContain("#0B1F4B");
     const input = html.match(/<input[^>]*name="ig_access_token"[^>]*>/)?.[0] ?? "";
     expect(input).toContain('type="password"');
     expect(input).toContain('autocomplete="off"');

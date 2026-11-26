@@ -5,7 +5,7 @@
 // Days are the viewer's own: the browser leaves its UTC offset in a `tz` cookie (theme.ts HEAD) and a range is whole
 // local days ending today, so "7 days" is today plus the six before it and the chart's buckets match the calendar.
 
-import { esc, page, type Role } from "./admin";
+import { esc, me, page, type Role } from "./admin";
 import { barRow, CHART_JS, lineChart } from "./charts";
 import { agoLong, RANGE_LABEL, RANGES, type Range } from "./dashboard";
 import * as db from "./db";
@@ -228,9 +228,63 @@ ${problems.map((p) => `<div class="row"><span><b>${esc(p.kind)} ×${p.n}</b><br>
     .map((r) => `<a href="?range=${r}"${r === range ? ' class="on" aria-current="true"' : ""} aria-label="${RANGE_LABEL[r]}"><span class="w">${r === "all" ? "All time" : r.replace("d", " days")}</span><span class="n">${r === "all" ? "All" : r}</span></a>`)
     .join("");
 
+  const acct = await me(env);
+  const token = await db.getSetting(D, "ig_token");
+  const connected = Boolean(token || acct?.username);
+  const helloName = (acct?.name || "").trim().split(/\s+/)[0] || "Rayen";
+  const aiOn = ((await db.getSetting(D, "autopilot")) ?? env.AUTOPILOT) === "true";
+  const commentLive = triggers.some((t) => t.source === "comment" && t.enabled && !t.deleted_at);
+  const replyOn = aiOn || triggers.some((t) => (t.source === "dm" || t.source === "welcome") && t.enabled && !t.deleted_at);
+  const openFlow = (source: string) => {
+    const t = triggers.find((x) => x.source === source && !x.deleted_at);
+    return t ? `/admin/flows/${t.id}` : "/admin/automations";
+  };
+  const steps: { done: boolean; title: string; href: string }[] = [
+    { done: connected, title: "Connect your Instagram account", href: connected ? "/admin/profile" : "/auth/start" },
+    { done: commentLive, title: "Turn on a comment automation", href: openFlow("comment") },
+    { done: replyOn, title: "Reply to every DM", href: "/admin/ai" },
+  ];
+  const doneN = steps.filter((s) => s.done).length;
+  const start = (href: string, title: string, popular = false) =>
+    `<a class="start" href="${href}"><span class="start-t">${title}</span><span class="start-f">${icon("automations", 14, 2)}<span>Quick Automation</span>${popular ? `<span class="pop">POPULAR</span>` : ""}</span></a>`;
+  const checklist = steps
+    .map(
+      (s) => `<a class="move${s.done ? " done" : ""}" href="${s.href}"><span class="tick">${s.done ? icon("check", 12, 2.6) : ""}</span><span class="grow">${s.title}</span><span class="chev">${icon("chevron", 16, 2)}</span></a>`,
+    )
+    .join("");
+
+  let waiting = "";
+  try {
+    const { results: hold } = await D.prepare(
+      `SELECT l.subscriber_id, l.username, l.first_name, m.text AS last_text
+       FROM leads l JOIN messages m ON m.id = (SELECT MAX(id) FROM messages WHERE subscriber_id = l.subscriber_id AND role = 'lead')
+       WHERE l.status = 'paused' AND l.members IS NULL AND (?1 = 'admin' OR l.test = 1)
+       ORDER BY m.created_at DESC LIMIT 5`,
+    )
+      .bind(who)
+      .all<{ subscriber_id: string; username: string | null; first_name: string | null; last_text: string }>();
+    const rows = hold
+      .map((r) => {
+        const name = r.first_name || (r.username ? `@${r.username}` : r.subscriber_id);
+        return `<a class="li" href="/admin/inbox/${esc(r.subscriber_id)}"><div class="grow"><div class="t">${esc(name)}</div><div class="s">${esc(r.last_text.slice(0, 140))}</div></div>${icon("chevron")}</a>`;
+      })
+      .join("");
+    waiting = `<div class="card flush"><div class="ph"><div><h2>Waiting on you</h2><p>Conversations paused until someone replies in person.</p></div></div>${rows || `<p class="none">Nothing is waiting on you.</p>`}</div>`;
+  } catch {
+    waiting = "";
+  }
+
   return page(
     "Dashboard",
-    `<p class="meta"><span><b>${num(contacts)}</b> contacts</span><span><b>${num(live)}</b> automations live</span><span><b>${num(open)}</b> conversations open for replies</span>${w.days ? `<span class="cmp">Arrows compare with the ${w.days} days before</span>` : ""}</p>
+    `<h2 class="hello">Hello, ${esc(helloName)}!</h2>
+<p class="hello-meta">${connected ? "1 connected channel" : "No channel connected"} · <b>${num(contacts)}</b> contacts · <a href="#insights">See Insights</a></p>
+<div class="sec-h"><h3>Start here</h3><a href="/admin/automations">Explore all Templates</a></div>
+<div class="start-grid">${start(openFlow("comment"), "Auto-DM links from comments", true)}${start(openFlow("story"), "Generate leads with stories")}${start("/admin/ai", "Respond to all your DMs")}</div>
+<h3 class="sec-title">Your next best moves</h3>
+<div class="moves"><div class="k">First steps</div><b>You're nailing it! Keep your audience's attention with the remaining automations</b>
+<div class="bar" role="progressbar" aria-valuenow="${doneN}" aria-valuemin="0" aria-valuemax="3"><i style="width:${Math.round((100 * doneN) / 3)}%"></i></div>
+<div class="cap">${doneN} of 3 completed</div>${checklist}</div>
+<div id="insights"><p class="meta"><span><b>${num(contacts)}</b> contacts</span><span><b>${num(live)}</b> automations live</span><span><b>${num(open)}</b> conversations open for replies</span>${w.days ? `<span class="cmp">Arrows compare with the ${w.days} days before</span>` : ""}</p>
 <div class="stats">${kpis}</div>
 <div class="cols"><div class="card"><div class="ph"><div><h2>Messages per ${weekly ? "week" : "day"}</h2></div>
 <div class="lgd"><span><i style="background:var(--pri)"></i>Received<b>${num(inNow.msgs)}</b></span><span><i style="background:var(--series2)"></i>Sent<b>${num(sentTotal)}</b></span></div></div>
@@ -238,7 +292,7 @@ ${chart}</div>
 <div class="card"><div class="ph"><div><h2>What people did with your automation DMs</h2><p>Share of everyone who got one.</p></div></div>${funnel}</div></div>
 <div class="cols"><div class="card"><div class="ph"><div><h2>Top automations</h2></div><a href="/admin/automations">All automations</a></div>${topTable}</div>
 <div class="card"><div class="ph"><div><h2>What started them</h2><p>Automation runs by trigger.</p></div></div>${startRows || `<p class="none">No runs in this range.</p>`}${commentLine}</div></div>
-${problemsCard}${CHART_JS}`,
+${problemsCard}${waiting}</div>${CHART_JS}`,
     who,
     env,
     { actions: `<nav class="seg" aria-label="Date range">${ranges}</nav>` },
