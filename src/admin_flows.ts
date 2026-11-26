@@ -19,25 +19,27 @@ const CSS = `<style>
 /* The Automation page: a 196px sub-nav on the left, then a 1070px column: heading + New
    Automation, a 4-column row of search and filters, folders on the same 4 columns, Trash on the right, then a card per
    automation on one grid (name | switch | runs | CTR | modified | menu) with its trigger on a second line. */
-.m-automations .wrap:has(.au){max-width:none;padding:0 48px 32px 32px}
-.au{display:flex;gap:32px;align-items:flex-start}
-.au-nav{flex:none;width:196px;padding-top:24px;display:flex;flex-direction:column}
-.au-nav a{display:flex;align-items:center;gap:8px;height:36px;padding:0 8px;border-radius:6px;color:var(--ink);font-size:14px;line-height:20px;opacity:1}
+.m-automations .wrap:has(.au){max-width:none;padding:0}
+.au{display:flex;gap:0;align-items:stretch;min-height:calc(100vh - 56px)}
+.au-nav{flex:none;width:200px;padding:16px 12px;display:flex;flex-direction:column;gap:4px;background:var(--bg)}
+.au-nav a{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:999px;border:1px solid transparent;color:var(--ink2);font-size:14px;line-height:20px;opacity:1}
 .au-nav a svg{color:var(--mut)}
-.au-nav a:hover{background:var(--navhov);opacity:1}.au-nav a.on{background:var(--navon)}
-.au-main{flex:1;min-width:0;max-width:1070px;margin:0 auto;padding-top:32px}
-.au-h{display:flex;justify-content:space-between;min-height:42px;align-items:center;gap:12px;margin:0 0 24px}
-.au-h h2{font-size:24px;line-height:36px;font-weight:700;letter-spacing:-.01em}
+.au-nav a:hover{background:var(--soft);opacity:1;color:var(--ink)}.au-nav a.on{background:var(--soft);border-color:var(--line);color:var(--ink);font-weight:700}
+.au-nav a.on svg{color:var(--ink)}
+.au-main{flex:1;min-width:0;max-width:none;margin:0;padding:24px 28px 48px;background:var(--bg)}
+.au-h{display:flex;justify-content:space-between;min-height:42px;align-items:center;gap:12px;margin:0 0 16px}
+.au-h h2{font-size:20px;line-height:28px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
 .au-h h2 a{color:var(--mut)}
-.mc-btn{display:inline-flex;align-items:center;gap:8px;height:36px;white-space:nowrap;background:var(--brand);color:#fff;border-radius:6px;padding:0 12px;font-weight:500;font-size:14px;border:0;margin:0;opacity:1;cursor:pointer}
-.mc-btn:hover{background:color-mix(in srgb,var(--brand) 82%,#000);opacity:1}
-.au-f,.au-fds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 24px}
+.mc-btn{display:inline-flex;align-items:center;gap:8px;height:36px;white-space:nowrap;background:var(--blue);color:#fff;border-radius:8px;padding:0 14px;font-weight:700;font-size:14px;border:0;margin:0;opacity:1;cursor:pointer}
+.mc-btn:hover{background:var(--blue2);opacity:1}
+.au-f{display:flex;flex-wrap:wrap;gap:12px;margin:0 0 16px}
+.au-fds{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
 .au-f>*{margin:0}
-.au-f input,.au-f select{height:36px;margin:0;padding:0 12px;border-radius:6px;background-color:var(--panel);border:1px solid var(--line);font-size:14px;color:var(--ink)}
-.au-f select{padding-right:30px;color:var(--mut)}
-.au-f .srch{margin:0}.au-f .srch input{padding-left:36px;font-size:14px;border-radius:6px;background:var(--panel);border:1px solid var(--line)}.au-f .srch svg{left:12px;top:10px}
+.au-f input,.au-f select{height:36px;margin:0;padding:0 12px;border-radius:8px;background-color:var(--card);border:1px solid var(--line2);font-size:14px;color:var(--ink)}
+.au-f select{width:auto;min-width:180px;padding-right:30px;color:var(--ink2)}
+.au-f .srch{margin:0;flex:1 1 240px}.au-f .srch input{padding-left:36px;font-size:14px;border-radius:8px;background:var(--card);border:1px solid var(--line2)}.au-f .srch svg{left:12px;top:10px}
 .au-fds{margin-bottom:16px}
-.au-fd{position:relative;display:flex;align-items:center;gap:8px;height:42px;border:1px dashed transparent;border-radius:10px;padding:0 4px 0 12px;background:var(--panel);box-shadow:0 4px 6px rgba(32,34,36,.03),0 1px 2px rgba(0,0,0,.06);color:var(--ink);opacity:1;min-width:0}
+.au-fd{position:relative;display:flex;align-items:center;gap:8px;height:36px;border:1px solid var(--line);border-radius:999px;padding:0 8px 0 12px;background:var(--card);box-shadow:none;color:var(--ink);opacity:1;min-width:0}
 .au-fd>a{flex:1;color:var(--ink);display:flex;align-items:center;gap:10px;min-width:0;height:100%;opacity:1}.au-fd>a span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .au-fd svg{color:var(--pri)}
 .au-fd small{color:var(--mut)}
@@ -46,9 +48,9 @@ const CSS = `<style>
 .au-tr{display:flex;justify-content:flex-end;margin:0 0 40px}
 .au-tr a{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:500}
 .au-cols,.au-row{display:grid;grid-template-columns:18px minmax(0,1fr) 36px 56px 56px 112px 32px;column-gap:24px;align-items:center}
-.au-cols{font-size:12px;line-height:16px;color:var(--mut);padding:0 24px 12px}.au-cols a{color:var(--mut);opacity:1}.au-cols a:hover,.au-cols a.on{color:var(--ink)}.au-cols .r{text-align:right}
+.au-cols{font-size:12px;line-height:16px;color:var(--mut);font-weight:600;padding:0 20px 8px}.au-cols a{color:var(--mut);opacity:1}.au-cols a:hover,.au-cols a.on{color:var(--ink)}.au-cols .r{text-align:right}
 .au-cols>:nth-child(2),.au-row>.nmc,.au-row>.trg{margin-left:-10px}
-.au-row{row-gap:16px;border-radius:10px;padding:24px;margin-bottom:16px;background:var(--panel);box-shadow:0 4px 8px rgba(32,34,36,.03),0 1px 3px rgba(0,0,0,.08)}
+.au-row{row-gap:12px;border-radius:12px;padding:16px 20px;margin-bottom:10px;background:var(--card);border:1px solid var(--line);box-shadow:0 1px 2px rgba(11,31,75,.04)}
 :root[data-theme=dark] .au-row,:root[data-theme=dark] .au-fd:not(.new){box-shadow:none;border:1px solid var(--line)}
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]) .au-row,:root:not([data-theme=light]) .au-fd:not(.new){box-shadow:none;border:1px solid var(--line)}}
 .au-row input[type=checkbox],.au-cols input[type=checkbox]{width:18px;height:18px;margin:0;display:block;accent-color:var(--pri)}
@@ -56,12 +58,14 @@ const CSS = `<style>
 .au-row .nm:hover span:last-child{color:var(--pri)}
 .au-row .trg{font-size:12px;line-height:20px;color:var(--mut);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mc-num{font-weight:500;text-align:right;font-variant-numeric:tabular-nums}.au-row .mod{color:var(--mut);white-space:nowrap}
-.au-row .sub{font-size:12px;line-height:16px;color:var(--mut);text-align:right;font-variant-numeric:tabular-nums}
+.au-row .sub{display:none}
 .au-row .sw{display:grid;place-items:center}
-.st-b{display:inline-block;font-size:12px;line-height:16px;font-weight:500;padding:3px 7px;border-radius:4px;margin-right:8px;flex:none;border:1px solid transparent}
-.st-b.live{background:linear-gradient(90deg,#c90083,#e10038);color:#fff}.st-b.draft,.st-b.off{background:var(--canvas);color:var(--mut);border-color:var(--panel)}
+.st-b{display:inline-block;font-size:10px;line-height:16px;font-weight:700;letter-spacing:.04em;padding:2px 6px;border-radius:4px;margin-right:8px;flex:none;border:1px solid transparent}
+.st-b.live{background:#E03121;color:#fff}.st-b.draft{background:var(--soft);color:var(--mut);border-color:var(--line)}
+.st-b.off{font-size:0;line-height:0;background:#EEF2F8;color:transparent;border-color:var(--line2);vertical-align:middle}
+.st-b.off::after{content:"PAUSED";font-size:10px;line-height:16px;font-weight:700;letter-spacing:.04em;color:var(--mut)}
 .ig{display:inline-block;width:12px;height:12px;border-radius:4px;background:linear-gradient(45deg,#fdb641,#f5543b,#d62a8a,#7b3fe4);vertical-align:-2px;margin-right:6px}
-.au-row .trg .chip{padding:1px 6px;line-height:16px;font-weight:400;margin:0 2px;border-radius:40px;color:var(--mut);background:color-mix(in srgb,var(--pri) 8%,var(--panel));border:1px solid color-mix(in srgb,var(--pri) 30%,var(--panel))}
+.au-row .trg .chip{padding:1px 6px;line-height:16px;font-weight:600;margin:0 2px;border-radius:6px;color:var(--ink2);background:var(--soft);border:1px solid var(--line2)}
 .au .switch{position:relative;display:inline-block;width:36px;height:20px;margin:0}.au .switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:1}
 .au .switch span{position:absolute;inset:0;border-radius:999px;background:var(--track);transition:.15s}.au .switch span:after{content:"";position:absolute;left:2px;top:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.15s}
 .au .switch span:before{display:none}.au .switch input:checked+span{background:var(--green)}.au .switch input:checked+span:after{left:18px}
@@ -355,14 +359,15 @@ async function create(env: Env, template: string, folder: string | null, now: nu
 // `after` = whatever the page adds under the list (admin.ts's Recent comments), inside the same column.
 export async function automationsBody(env: Env, req: Request, who: Role, label: Map<string, string>, now = Date.now(), after = ""): Promise<string> {
   const u = new URL(req.url).searchParams;
-  const tab = u.get("tab") === "basic" ? "basic" : u.get("tab") === "trash" ? "trash" : "all";
+  const tab = u.get("tab") === "basic" ? "basic" : u.get("tab") === "trash" ? "trash" : u.get("tab") === "sequences" ? "sequences" : "all";
   const tabs = `<nav class="au-nav" aria-label="Automation">${[
     ["all", "My Automations", "flow"],
     ["basic", "Basic", "shapes"],
+    ["sequences", "Sequences", "clock"],
   ]
     .map(([k, l, ic]) => `<a href="/admin/automations${k === "all" ? "" : `?tab=${k}`}"${k === tab || (k === "all" && tab === "trash") ? ' class="on"' : ""}>${icon(ic, 16, 1.8)}${l}</a>`)
     .join("")}</nav>`;
-  const body = tab === "basic" ? await basicTab(env, who) : tab === "trash" ? await trashTab(env, who, label, now) : await listTab(env, u, who, label, now);
+  const body = tab === "basic" ? await basicTab(env, who) : tab === "trash" ? await trashTab(env, who, label, now) : await listTab(env, u, who, label, now, tab === "sequences");
   return `${CSS}<div class="au">${tabs}<div class="au-main">${body}${after}</div></div>${who === "admin" ? newDialog(u.get("folder")) : ""}`;
 }
 
@@ -380,7 +385,7 @@ function newDialog(folder: string | null): string {
 const menuForm = (id: number, action: string, label: string, extra = "", cls = "") =>
   `<form method="post" action="/admin/automations/${id}/${action}"${extra}><button${cls ? ` class="${cls}"` : ""}>${label}</button></form>`;
 
-async function listTab(env: Env, u: URLSearchParams, who: Role, label: Map<string, string>, now: number): Promise<string> {
+async function listTab(env: Env, u: URLSearchParams, who: Role, label: Map<string, string>, now: number, sequences = false): Promise<string> {
   const folder = u.get("folder") || null;
   const q = (u.get("q") ?? "").trim().toLowerCase();
   const source = u.get("trigger") ?? "";
@@ -392,9 +397,15 @@ async function listTab(env: Env, u: URLSearchParams, who: Role, label: Map<strin
   const stats = await automationStats(env);
   const st = (t: Trigger) => stats.get(t.id) ?? { runs: 0, clicks: 0 };
   // Search covers every folder; otherwise you see the open folder.
-  let list = all.filter((t) => (q ? `${nameOf(t)} ${t.keyword}`.toLowerCase().includes(q) : (t.folder ?? null) === folder));
+  let list = all.filter((t) => (q || sequences ? `${nameOf(t)} ${t.keyword}`.toLowerCase().includes(q) : (t.folder ?? null) === folder));
   if (source) list = list.filter((t) => t.source === source);
+  if (sequences) {
+    const { results: delays } = await env.DB.prepare(`SELECT DISTINCT trigger_id AS id FROM flow_nodes WHERE kind = 'delay'`).all<{ id: number }>();
+    const delayIds = new Set(delays.map((d) => d.id));
+    list = list.filter((t) => delayIds.has(t.id) || t.source === "dm" || (t.draft ?? "").includes('"delay"'));
+  }
   if (state === "live") list = list.filter((t) => t.enabled);
+  if (state === "paused") list = list.filter((t) => statusOf(t) === "off");
   if (state === "draft") list = list.filter((t) => statusOf(t) === "draft" || t.draft);
   if (state === "off") list = list.filter((t) => statusOf(t) === "off");
   const key = (t: Trigger) => (sort === "name" ? nameOf(t).toLowerCase() : sort === "runs" ? st(t).runs : (t.updated_at ?? t.created_at));
@@ -436,7 +447,7 @@ ${menuForm(t.id, "delete", "Delete", ` onsubmit="return confirm('Move to Trash?'
   const counts = new Map<string, number>();
   for (const t of all) if (t.folder) counts.set(t.folder, (counts.get(t.folder) ?? 0) + 1);
   const folderTiles =
-    folder || q
+    folder || q || sequences
       ? ""
       : `<div class="au-fds">${all_folders
           .map(
@@ -454,21 +465,22 @@ ${menuForm(t.id, "delete", "Delete", ` onsubmit="return confirm('Move to Trash?'
     const next = on && order === "desc" ? "asc" : "desc";
     return `<a class="${[cls, on ? "on" : ""].filter(Boolean).join(" ")}" href="${qs(base, { sort: k, order: next })}">${l}${on ? (order === "desc" ? " ↓" : " ↑") : " ↕"}</a>`;
   };
-  const title = folder ? `<a href="/admin/automations">My Automations</a> › ${esc(folder)}` : q ? "Search results" : "My Automations";
-  return `<div class="au-h"><h2>${title}</h2>${admin ? `<button class="mc-btn" type="button" onclick="document.getElementById('au-new').showModal()">${icon("plus", 18, 1.8)}New Automation</button>` : ""}</div>
+  const title = sequences ? "Sequences" : folder ? `<a href="/admin/automations">My Automations</a> › ${esc(folder)}` : q ? "Search results" : "My Automations";
+  return `<div class="au-h"><h2>${title}</h2>${admin ? `<button class="mc-btn" type="button" onclick="document.getElementById('au-new').showModal()">+ New Automation</button>` : ""}</div>
+${sequences ? `<p class="note">Follow-ups and multi-step flows: DM keywords, and anything with a delay.</p>` : ""}
 <form class="au-f" method="get" action="/admin/automations">${folder ? `<input type="hidden" name="folder" value="${esc(folder)}">` : ""}<input type="hidden" name="sort" value="${sort}"><input type="hidden" name="order" value="${order}">
 <div class="srch">${icon("search", 16)}<input type="search" name="q" value="${esc(q)}" placeholder="Search all Automations" aria-label="Search all automations"></div>
 <select name="trigger" onchange="this.form.submit()" aria-label="Trigger"><option value="">Any Trigger</option>${SOURCES.map((s) => `<option value="${s.value}"${s.value === source ? " selected" : ""}>${s.label}</option>`).join("")}</select>
-<select name="state" onchange="this.form.submit()" aria-label="State"><option value="">Any state</option>${[
+<select name="state" onchange="this.form.submit()" aria-label="Trigger state"><option value="">Any Trigger states</option>${[
     ["live", "Live"],
-    ["off", "Off"],
-    ["draft", "Draft or unpublished"],
+    ["off", "Paused"],
+    ["draft", "Draft"],
   ]
     .map(([v, l]) => `<option value="${v}"${v === state ? " selected" : ""}>${l}</option>`)
     .join("")}</select></form>
 ${folderTiles}
-${folder || q ? "" : `<div class="au-tr"><a href="/admin/automations?tab=trash">${icon("trash", 16, 1.8)}Trash</a></div>`}
-${rows ? `<div class="au-cols"><span></span>${sortLink("name", "Name")}<span></span>${sortLink("runs", "Runs", "r")}<span class="r">CTR</span>${sortLink("modified", "Modified")}<span></span></div>${rows}` : `<div class="au-empty">${q || source || state ? "Nothing matches." : folder ? "This folder is empty." : "No automations yet. Comment and DM keywords, story replies and mentions all start here."}</div>`}
+${folder || q || sequences ? "" : `<div class="au-tr"><a href="/admin/automations?tab=trash">${icon("trash", 16, 1.8)}Trash</a></div>`}
+${rows ? `<div class="au-cols"><span></span>${sortLink("name", "Name")}<span></span>${sortLink("runs", "Runs", "r")}<span class="r">CTR</span>${sortLink("modified", "Modified")}<span></span></div>${rows}` : `<div class="au-empty">${q || source || state ? "Nothing matches." : sequences ? "No sequences yet. DM keywords and flows with a delay show up here." : folder ? "This folder is empty." : "No automations yet. Comment and DM keywords, story replies and mentions all start here."}</div>`}
 ${
   admin
     ? `<form id="bulk" method="post" action="/admin/automations/bulk" class="au-bulk"><span>Selected:</span><select name="folder"><option value="">Move to…</option><option value="/">Top level</option>${all_folders.map((f) => `<option value="${esc(f)}">${esc(f)}</option>`).join("")}</select>

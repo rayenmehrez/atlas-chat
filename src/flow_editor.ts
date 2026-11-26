@@ -84,7 +84,7 @@ dialog.fe-dlg::backdrop{background:rgba(0,0,0,.45)}
 .fe-test .nt{font-size:12px;line-height:16px;margin-bottom:8px}
 .fe-test .x{position:absolute;top:8px;right:10px;background:none;border:0;font-size:22px;color:var(--mut);padding:4px 8px;margin:0;cursor:pointer}
 .fe-st{font-size:10px;font-weight:700;letter-spacing:.04em;padding:0 6px;line-height:18px;border-radius:4px;white-space:nowrap}
-.fe-st.live{background:linear-gradient(90deg,#c90083,#e10038);color:#fff}.fe-st.draft,.fe-st.off{background:var(--soft);color:var(--mut)}
+.fe-st.live{background:#E03121;color:#fff}.fe-st.draft,.fe-st.off{background:var(--soft);color:var(--mut)}
 .fe-menu{position:relative}.fe-menu>div{position:absolute;right:0;top:40px;background:var(--elev);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 30px rgba(0,0,0,.15);padding:6px;min-width:190px;z-index:6}
 .fe-menu>div button{display:block;width:100%;text-align:left;background:none;color:var(--ink);font-weight:500;padding:9px 12px;margin:0}
 .fe-menu>div button:hover{background:var(--hover)}.fe-menu>div button.dz{color:var(--red)}

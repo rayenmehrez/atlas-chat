@@ -76,9 +76,24 @@ export async function me(env: Env, now = Date.now()): Promise<Me | null> {
   }
 }
 export const meAvatar = (m: Me | null) =>
-  `<span class="av" style="background:#5764fa">${esc((m?.name || m?.username || "F").charAt(0).toUpperCase())}${
+  `<span class="av" style="background:#0B1F4B">${esc((m?.name || m?.username || "A").charAt(0).toUpperCase())}${
     m?.pic ? `<img src="${esc(m.pic)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : ""
   }</span>`;
+
+// Unread dot on Inbox: flagged threads and ones paused for a person to take over.
+async function attention(env: Env, who: Role): Promise<number> {
+  try {
+    const row = await env.DB.prepare(
+      `SELECT COUNT(*) AS n FROM leads l WHERE l.members IS NULL AND (?1 = 'admin' OR l.test = 1)
+       AND (l.status = 'flagged' OR (l.status = 'paused' AND l.paused_reason = 'handoff'))`,
+    )
+      .bind(who)
+      .first<{ n: number }>();
+    return row?.n ?? 0;
+  } catch {
+    return 0;
+  }
+}
 
 export interface PageOpts {
   title?: string; // the title bar's heading, when it isn't the section's name
@@ -91,22 +106,27 @@ export interface PageOpts {
 // bar (CSS). Styles live in theme.ts.
 export async function page(active: Section, body: string, who: Role, env: Env, opts: PageOpts = {}): Promise<Response> {
   const acct = await me(env);
+  const unread = await attention(env, who);
   const nav = NAV.filter(([n]) => who === "admin" || n !== "Settings")
-    .map(([n, label, href, ic]) => `<a class="nv${n === active ? " on" : ""}" href="${href}" title="${label}"${n === active ? ' aria-current="page"' : ""}>${icon(ic, 24, 1.7)}<span class="l">${label}</span></a>`)
+    .map(
+      ([n, label, href, ic]) =>
+        `<a class="nv${n === active ? " on" : ""}" href="${href}" title="${label}"${n === active ? ' aria-current="page"' : ""}>${icon(ic, 22, 1.7)}${n === "Inbox" && unread ? `<i class="ndot" aria-hidden="true"></i>` : ""}<span class="l">${label}</span></a>`,
+    )
     .join("");
   const who2 = acct?.username
     ? `<a class="who" href="/admin/profile" title="@${esc(acct.username)}">${meAvatar(acct)}<span class="l">${esc(acct.name || acct.username)}<small>@${esc(acct.username)}</small></span></a>`
     : `<a class="who" href="${who === "admin" ? "/auth/start" : "/admin/profile"}">${meAvatar(null)}<span class="l">${who === "admin" ? "Connect Instagram" : APP_NAME}</span></a>`;
   const key = active.toLowerCase();
   const title = opts.title ?? TITLE[active];
-  const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  const html = `<!doctype html><html lang="en" class="nav-min"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>${esc(title)} · ${APP_NAME}</title>${HEAD}</head><body class="p-${key}">
-<aside class="side" aria-label="Main navigation"><a class="brand" href="/admin/dashboard"><span class="logo" aria-hidden="true">${LOGO}</span><span class="l">${APP_NAME}</span></a>
+<aside class="side" aria-label="Main navigation"><a class="brand" href="/admin/dashboard" title="${APP_NAME}"><span class="logo" aria-hidden="true">${LOGO}</span><span class="l">${APP_NAME}</span></a>
 ${who2}
 <nav>${nav}</nav><div class="gap"></div>
 <div class="fold"><button type="button" onclick="foldNav(this)" aria-label="Collapse navigation" aria-expanded="true" title="Collapse">${icon("fold", 20, 1.8)}</button></div>
 <div class="foot"><a class="nv${active === "Profile" ? " on" : ""}" href="/admin/profile" title="My Profile">${meAvatar(acct)}<span class="l">My Profile</span></a>
-<button type="button" class="nv" onclick="flipTheme()" title="Switch between light and dark" aria-label="Switch between light and dark"><span class="th-d">${icon("moon", 24, 1.7)}<span class="l">Dark mode</span></span><span class="th-l">${icon("sun", 24, 1.7)}<span class="l">Light mode</span></span></button></div></aside>
+<a class="nv nv-help${active === "Help" ? " on" : ""}" href="/admin/help" aria-label="Help"><span class="q" aria-hidden="true">?</span><span class="l">Help</span></a>
+<button type="button" class="nv" onclick="flipTheme()" title="Switch between light and dark" aria-label="Switch between light and dark"><span class="th-d">${icon("moon", 22, 1.7)}<span class="l">Dark mode</span></span><span class="th-l">${icon("sun", 22, 1.7)}<span class="l">Light mode</span></span></button></div></aside>
 <main class="m-${key}"><header class="tb"><h1>${esc(title)}</h1><div class="tb-r">${opts.actions ?? ""}<a class="me" href="/admin/profile" aria-label="My Profile">${meAvatar(acct)}</a></div></header>
 <div class="wrap">
 ${body}
