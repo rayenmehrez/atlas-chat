@@ -76,7 +76,10 @@ describe("log in with Instagram", () => {
     const res = await worker.fetch(new Request("https://x/admin/inbox"), env, ctx);
     expect(res.status).toBe(302);
     expect(res.headers.get("Location")).toBe("https://x/login");
-    expect(await (await worker.fetch(new Request("https://x/login"), env, ctx)).text()).toContain("Log in with Instagram");
+    const login = await (await worker.fetch(new Request("https://x/login"), env, ctx)).text();
+    expect(login).toContain("Log in with Instagram");
+    expect(login).toContain("AtlasChat");
+    expect(login).toContain("#1A3C34");
     expect((await worker.fetch(new Request("https://x/admin/password"), env, ctx)).status).toBe(401);
     const basic = new Request("https://x/admin/password", { headers: { Authorization: `Basic ${btoa("j:pw")}` } });
     expect((await worker.fetch(basic, env, ctx)).headers.get("Location")).toBe("https://x/admin/dashboard");
@@ -138,14 +141,14 @@ describe("log in with Instagram", () => {
 });
 
 describe("favicon", () => {
-  it("every page carries the 📫 icon, and /favicon.ico serves it", async () => {
+  it("every page carries the Atlas mark, and /favicon.ico serves it", async () => {
     const env = makeEnv();
     const login = await (await worker.fetch(new Request("https://x/login"), env, ctx)).text();
     expect(login).toContain('<link rel="icon" href="data:image/svg+xml,');
-    expect(decodeURIComponent(login)).toContain("📫");
+    expect(decodeURIComponent(login)).toContain('fill="#1A3C34"');
     const ico = await worker.fetch(new Request("https://x/favicon.ico"), env, ctx);
     expect(ico.headers.get("Content-Type")).toBe("image/svg+xml");
-    expect(await ico.text()).toContain("📫");
+    expect(await ico.text()).toContain('fill="#1A3C34"');
   });
 });
 

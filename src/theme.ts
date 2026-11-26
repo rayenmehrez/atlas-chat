@@ -61,21 +61,24 @@ export const STAGE_COLOR: Record<string, string> = {
   closed: "#8e8e8e",
 };
 
-// --canvas = the page and the sidebar, --panel = what sits on it, --bg = the Inbox's own panes. --pri in light mode is
-// deep enough for white button text and for links on the canvas (5:1); --mut clears 4.5:1 on the canvas too.
+// --canvas = the page and the sidebar, --panel = what sits on it, --bg = the Inbox's own panes.
+// --brand is Atlas forest green (#1A3C34) in both themes. Filled buttons use it with white text (about 12:1).
+// --pri is the accent for links, charts, pills and focus. Light mode uses the same green (about 11:1 on the canvas).
+// Dark mode uses a light sage: the deep green would fail contrast on the near-black canvas. --mut clears 4.5:1 on the canvas.
 const DARK = `--bg:#000;--ink:#f5f5f5;--mut:#a8a8a8;--line:#2a2a2a;--hover:#161616;--sel:#1f1f1f;--soft:#262626;--field:#121212;--elev:#121212;
 --canvas:#0a0a0a;--panel:#141414;--navon:#2c2c2c;--navhov:#1c1c1c;--up:#4ac26b;--down:#ff6b6b;--series2:#8c8c8c;
---btn2:#363636;--track:#363636;--out:#4a5df9;--pri:#3b9eff;--link:#e0f1ff;--red:#ff3040;--green:#5fd068;--amber:#f5b041;color-scheme:dark`;
+--btn2:#363636;--track:#363636;--out:#4a5df9;--brand:#1A3C34;--pri:#C6E6D6;--link:#C6E6D6;--red:#ff3040;--green:#5fd068;--amber:#f5b041;color-scheme:dark`;
 const LIGHT = `--bg:#fff;--ink:#1f1f1f;--mut:#6b6b6b;--line:#d9d9d9;--hover:#f7f7f7;--sel:#efefef;--soft:#efefef;--field:#fafafa;--elev:#fff;
---canvas:#f5f5f5;--panel:#fff;--navon:#dcdcdc;--navhov:#e9e9e9;--up:#1a7f37;--down:#c62828;--series2:#7a7a7a;
---btn2:#efefef;--track:#d9d9d9;--out:#4a5df9;--pri:#0064e0;--link:#00376b;--red:#d93848;--green:#2fb85a;--amber:#b87400;color-scheme:light`;
+--canvas:#f4f7f6;--panel:#fff;--navon:#d7e4df;--navhov:#e7eeeb;--up:#1a7f37;--down:#c62828;--series2:#7a7a7a;
+--btn2:#e7eeeb;--track:#d9d9d9;--out:#4a5df9;--brand:#1A3C34;--pri:#1A3C34;--link:#1A3C34;--red:#d93848;--green:#2fb85a;--amber:#b87400;color-scheme:light`;
 
 const CHEV = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238e8e8e' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`;
 
-// The app's mark: one emoji, used as the logo (rail, login page) and the site icon, so they always match.
-export const LOGO = "📫";
-// The site icon: the logo emoji as an SVG, inline on every page and served at /favicon.ico for anything that asks there.
-export const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">${LOGO}</text></svg>`;
+// AtlasChat's mark: a peak "A" on forest green. The sidebar, the login page and the site icon all use this SVG.
+export const APP_NAME = "AtlasChat";
+export const MARK_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#1A3C34"/><path d="M8.2 23.6 16 8.2l7.8 15.4" fill="none" stroke="#F4F7F5" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/><path d="M11.4 18.4h9.2" stroke="#C6E6D6" stroke-width="2.2" stroke-linecap="round"/></svg>`;
+export const LOGO = MARK_SVG;
+export const FAVICON_SVG = MARK_SVG;
 export const FAVICON = `<link rel="icon" href="data:image/svg+xml,${encodeURIComponent(FAVICON_SVG)}">`;
 
 export const HEAD = `${FAVICON}<script>try{var t=localStorage.getItem("theme");if(t)document.documentElement.dataset.theme=t;if(localStorage.getItem("nav")==="min")document.documentElement.classList.add("nav-min")}catch(e){}
@@ -115,7 +118,7 @@ svg{flex:none}
 .side{position:fixed;top:0;bottom:0;left:0;width:var(--rail);background:var(--canvas);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;z-index:5;transition:width .3s var(--ease)}
 .brand{display:flex;align-items:center;gap:10px;height:60px;padding:0 20px;border-bottom:1px solid var(--line);font-size:19px;font-weight:700;letter-spacing:-.02em;white-space:nowrap;flex:none;color:var(--ink);opacity:1}
 .brand:hover{opacity:1}
-.logo{width:24px;height:24px;display:grid;place-items:center;flex:none;font:22px/1 "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+.logo{width:24px;height:24px;display:grid;place-items:center;flex:none}.logo svg{width:24px;height:24px;display:block}
 .side .who{display:flex;align-items:center;gap:10px;height:64px;padding:0 18px;border-bottom:1px solid var(--line);white-space:nowrap;flex:none;color:var(--ink);font-size:13px;line-height:18px;min-width:0;opacity:1}
 .side .who .av{width:28px;height:28px;font-size:12px}
 .side .who .l{overflow:hidden;text-overflow:ellipsis;min-width:0}
@@ -135,7 +138,7 @@ button.nv{width:100%;margin:0;border:0;background:none;font:inherit;font-size:14
 html.nav-min .side .l{opacity:0}
 .side .gap{flex:1;min-height:8px}
 .fold{height:64px;display:flex;align-items:center;padding:0 14px;flex:none}
-.fold button{display:grid;place-items:center;width:36px;height:36px;margin:0;padding:0;border-radius:6px;background:none;color:var(--ink);transition:background-color .15s}
+.fold button{display:grid;place-items:center;width:36px;height:36px;margin:0;padding:0;border-radius:6px;background:none;color:var(--ink);box-shadow:none;transition:background-color .15s}
 .fold button:hover{background:var(--navhov)}
 .fold svg{transition:transform .3s var(--ease)}
 html.nav-min .fold svg{transform:scaleX(-1)}
@@ -168,9 +171,12 @@ textarea,input,select{width:100%;font:inherit;font-size:14px;line-height:18px;pa
 textarea:focus,input:focus,select:focus{outline:none;border-color:var(--mut)}
 select{appearance:none;-webkit-appearance:none;background-image:${CHEV};background-repeat:no-repeat;background-position:right 10px center;padding-right:30px;cursor:pointer}
 input[type=checkbox]{width:auto}
-button{font:inherit;font-size:14px;font-weight:600;line-height:18px;margin:8px 8px 0 0;padding:7px 16px;border-radius:8px;border:0;background:var(--pri);color:#fff;cursor:pointer}
-button:hover{background:color-mix(in srgb,var(--pri) 88%,#000)}
-button.ghost{background:var(--btn2);color:var(--ink)}
+button{font:inherit;font-size:14px;font-weight:600;line-height:18px;margin:8px 8px 0 0;padding:7px 16px;border-radius:8px;border:0;background:var(--brand);color:#fff;cursor:pointer}
+button:hover{background:color-mix(in srgb,var(--brand) 82%,#000)}
+/* Forest green sits close to the dark canvas. A sage ring keeps the fill, and makes the control readable. */
+:root[data-theme=dark] button{box-shadow:inset 0 0 0 1px #C6E6D6}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) button{box-shadow:inset 0 0 0 1px #C6E6D6}}
+button.ghost{background:var(--btn2);color:var(--ink);box-shadow:none}
 button.ghost:hover{filter:brightness(.95);background:var(--btn2)}
 button:disabled{opacity:.5;cursor:default}
 label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin:6px 0 6px}
@@ -181,7 +187,7 @@ label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin:6px 0
 .badge{display:inline-flex;align-items:center;border-radius:999px;color:#fff;font-size:11px;font-weight:600;padding:0 8px;line-height:18px}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:5px 10px;font-size:12px;font-weight:600;color:var(--ink);background:var(--soft);line-height:16px}
-.chip button{margin:0;padding:0 0 0 2px;background:none;color:var(--mut);font-size:15px;line-height:1;font-weight:400}
+.chip button{margin:0;padding:0 0 0 2px;background:none;color:var(--mut);box-shadow:none;font-size:15px;line-height:1;font-weight:400}
 .chip button:hover{background:none;color:var(--ink)}
 .empty{padding:16px 0;color:var(--mut)}
 
@@ -197,7 +203,7 @@ label{display:block;font-size:12px;font-weight:600;color:var(--mut);margin:6px 0
 .meta b{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
 .meta .cmp{margin-left:auto;font-size:13px}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;background:var(--panel);overflow:hidden}
-.seg a,.seg button{margin:0;padding:7px 12px;font-size:13px;line-height:18px;font-weight:600;color:var(--mut);background:none;border-radius:0;opacity:1;border-left:1px solid var(--line);white-space:nowrap}
+.seg a,.seg button{margin:0;padding:7px 12px;font-size:13px;line-height:18px;font-weight:600;color:var(--mut);background:none;box-shadow:none;border-radius:0;opacity:1;border-left:1px solid var(--line);white-space:nowrap}
 .seg a:first-child,.seg button:first-child{border-left:0}
 .seg a:hover,.seg button:hover{color:var(--ink);background:var(--hover);opacity:1}
 .seg a.on,.seg button[aria-pressed=true]{background:var(--navon);color:var(--ink)}
@@ -265,7 +271,7 @@ a.li:hover{background:var(--hover);opacity:1}
 .pipe .pct{display:inline-block;padding:3px 10px;border-radius:999px;border:1px solid;font-size:12px;font-weight:600}
 .aisw{display:flex;align-items:center;justify-content:space-between;gap:20px}
 .aisw form{margin:0}
-.aisw button{display:flex;align-items:center;gap:10px;margin:0;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);white-space:nowrap}
+.aisw button{display:flex;align-items:center;gap:10px;margin:0;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel);box-shadow:none;color:var(--ink);white-space:nowrap}
 .aisw button:hover{background:var(--hover)}
 .aisw button:disabled{opacity:.55;cursor:default}.aisw button:disabled:hover{background:var(--panel)}
 

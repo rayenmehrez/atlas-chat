@@ -1,5 +1,5 @@
 // Official Instagram API (Instagram Login) transport: webhooks in, Send API out, business-login OAuth
-// for the token. App: FewChat (Instagram app id in META_IG_APP_ID).
+// for the token. App: AtlasChat (Instagram app id in META_IG_APP_ID).
 
 import type { MessageUpdate, Part } from "./attachments";
 

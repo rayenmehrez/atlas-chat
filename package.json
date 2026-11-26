@@ -1,5 +1,5 @@
 {
-  "name": "fewchat",
+  "name": "atlas-chat",
   "private": true,
   "type": "module",
   "scripts": {
@@ -28,10 +28,10 @@
   "engines": {
     "node": ">=22"
   },
-  "description": "Open-source, self-hosted Instagram DM automation: comment-to-DM and story automations, a flow builder, inbox and metrics",
+  "description": "AtlasChat: self-hosted Instagram DM automation for @rayen.mhz. A fork of FewChat (MIT).",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jasonc00person/fewchat.git"
+    "url": "https://github.com/rayenmehrez/atlas-chat.git"
   }
 }

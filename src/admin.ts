@@ -6,7 +6,7 @@ import * as db from "./db";
 import { fetchAccount, recentMedia, type Media } from "./meta";
 import { hasSession } from "./session";
 import type { Env } from "./setter";
-import { HEAD, icon, LOGO } from "./theme";
+import { APP_NAME, HEAD, icon, LOGO } from "./theme";
 
 export const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -93,12 +93,12 @@ export async function page(active: Section, body: string, who: Role, env: Env, o
     .join("");
   const who2 = acct?.username
     ? `<a class="who" href="/admin/profile" title="@${esc(acct.username)}">${meAvatar(acct)}<span class="l">${esc(acct.name || acct.username)}<small>@${esc(acct.username)}</small></span></a>`
-    : `<a class="who" href="${who === "admin" ? "/auth/start" : "/admin/profile"}">${meAvatar(null)}<span class="l">${who === "admin" ? "Connect Instagram" : "FewChat"}</span></a>`;
+    : `<a class="who" href="${who === "admin" ? "/auth/start" : "/admin/profile"}">${meAvatar(null)}<span class="l">${who === "admin" ? "Connect Instagram" : APP_NAME}</span></a>`;
   const key = active.toLowerCase();
   const title = opts.title ?? TITLE[active];
   const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>${esc(title)} · FewChat</title>${HEAD}</head><body class="p-${key}">
-<aside class="side" aria-label="Main navigation"><a class="brand" href="/admin/dashboard"><span class="logo" aria-hidden="true">${LOGO}</span><span class="l">FewChat</span></a>
+<title>${esc(title)} · ${APP_NAME}</title>${HEAD}</head><body class="p-${key}">
+<aside class="side" aria-label="Main navigation"><a class="brand" href="/admin/dashboard"><span class="logo" aria-hidden="true">${LOGO}</span><span class="l">${APP_NAME}</span></a>
 ${who2}
 <nav>${nav}</nav><div class="gap"></div>
 <div class="fold"><button type="button" onclick="foldNav(this)" aria-label="Collapse navigation" aria-expanded="true" title="Collapse">${icon("fold", 20, 1.8)}</button></div>

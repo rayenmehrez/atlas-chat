@@ -299,7 +299,7 @@ export const THREAD_ASSETS = `<style>
 .mx-tpl{display:flex;flex-direction:column;width:260px;max-width:100%;border-radius:18px;overflow:hidden;border:1px solid var(--line);background:var(--bg)}
 .mx-tpl .t{padding:10px 14px;white-space:pre-wrap;color:var(--ink)}
 .mx-tpl-img{display:block;width:100%;max-height:260px;object-fit:cover}
-.mx-open{padding:10px 14px 12px;color:#0095f6;font-weight:600;font-size:13px}
+.mx-open{padding:10px 14px 12px;color:var(--pri);font-weight:600;font-size:13px}
 .mx-btn,.m.rich a.mx-btn{display:block;padding:10px 14px;text-align:center;border-top:1px solid var(--line);color:var(--pri);font-weight:600;opacity:1;text-decoration:none!important}
 .mx-ed{font-size:11px;color:var(--mut);padding:0 6px}
 .m.has-rx{position:relative;margin-bottom:14px}

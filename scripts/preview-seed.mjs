@@ -55,5 +55,5 @@ for (let d = 44; d >= 0; d--) {
     if (rnd() < 0.08) out.push(`INSERT OR IGNORE INTO lead_tags (subscriber_id, tag, created_at) VALUES (${q(id)}, ${q(pick(["member", "hot", "agency"]))}, ${at});`);
   }
 }
-out.push(`INSERT INTO settings (key, value) VALUES ('ig_profile', ${q(JSON.stringify({ username: "yourhandle", name: "Sam Lee", pic: null, at: now + 365 * DAY }))});`);
+out.push(`INSERT INTO settings (key, value) VALUES ('ig_profile', ${q(JSON.stringify({ username: "rayen.mhz", name: "Rayen Mehrez", pic: null, at: now + 365 * DAY }))});`);
 console.log(out.join("\n"));

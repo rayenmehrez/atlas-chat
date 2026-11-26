@@ -8,7 +8,7 @@ import { icon } from "./theme";
 export async function profilePage(env: Env, who: Role): Promise<Response> {
   const acct = await me(env);
   const account = acct?.username
-    ? `<div class="acct">${meAvatar(acct)}<div><b>${esc(acct.name || acct.username)}</b><br><small>@${esc(acct.username)} · the Instagram account FewChat sends from</small></div></div>`
+    ? `<div class="acct">${meAvatar(acct)}<div><b>${esc(acct.name || acct.username)}</b><br><small>@${esc(acct.username)} · the Instagram account AtlasChat sends from</small></div></div>`
     : `<div class="acct">${meAvatar(null)}<div><b>No Instagram account connected</b><br><small>Connect one to start receiving DMs and comments.</small></div></div>`;
   return page(
     "Profile",
