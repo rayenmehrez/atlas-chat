@@ -29,8 +29,8 @@ const CSS = `<style>
 .au-h{display:flex;justify-content:space-between;min-height:42px;align-items:center;gap:12px;margin:0 0 24px}
 .au-h h2{font-size:24px;line-height:36px;font-weight:700;letter-spacing:-.01em}
 .au-h h2 a{color:var(--mut)}
-.mc-btn{display:inline-flex;align-items:center;gap:8px;height:36px;white-space:nowrap;background:var(--pri);color:#fff;border-radius:6px;padding:0 12px;font-weight:500;font-size:14px;border:0;margin:0;opacity:1;cursor:pointer}
-.mc-btn:hover{background:color-mix(in srgb,var(--pri) 88%,#000);opacity:1}
+.mc-btn{display:inline-flex;align-items:center;gap:8px;height:36px;white-space:nowrap;background:var(--brand);color:#fff;border-radius:6px;padding:0 12px;font-weight:500;font-size:14px;border:0;margin:0;opacity:1;cursor:pointer}
+.mc-btn:hover{background:color-mix(in srgb,var(--brand) 82%,#000);opacity:1}
 .au-f,.au-fds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 24px}
 .au-f>*{margin:0}
 .au-f input,.au-f select{height:36px;margin:0;padding:0 12px;border-radius:6px;background-color:var(--panel);border:1px solid var(--line);font-size:14px;color:var(--ink)}
@@ -217,6 +217,25 @@ const tg = (source: Trigger["source"], keyword: string, nodes: Node[], edges: [s
 });
 
 export const TEMPLATES: Record<string, { name: string; emoji: string; desc: string; graph: () => Graph }> = {
+  reel: {
+    name: "Reel comment → resource link",
+    emoji: "🎬",
+    desc: "Someone comments a keyword on a Reel. They get a DM with your link, and a short public reply under the comment.",
+    graph: () =>
+      tg(
+        "comment",
+        "LINK",
+        [
+          msg("m1", 380, 0, [{ text: "Got it. Tap below and I'll send the link.", buttons: [{ id: "send", title: "Send the link" }] }]),
+          msg("m2", 760, 0, [{ text: "Here it is.", buttons: [{ id: "open", title: "Open", url: "{{SKOOL_LINK}}" }] }]),
+        ],
+        [
+          ["trigger", "next", "m1"],
+          ["m1", "send", "m2"],
+        ],
+        "Sent you a DM with the link.",
+      ),
+  },
   comment: {
     name: "Comment keyword → DM link",
     emoji: "💬",

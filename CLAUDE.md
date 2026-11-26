@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-FewChat is self-hosted Instagram DM automation for your own account: comment-to-DM, story and keyword automations on a visual flow builder, a live Inbox, Contacts, and a Home page of DM metrics, in a console (Home, Contacts, Automation, AI, Inbox, Settings) that anyone who has used Manychat will find familiar. An AI setter that answers DMs in your voice with Claude is included as a beta, off by default. It runs on your own Cloudflare account through the official Instagram API.
+AtlasChat is Rayen Mehrez's self-hosted Instagram DM automation for `@rayen.mhz`, built on FewChat (MIT, Copyright 2026 Jason Cooperson). It does comment-to-DM, story and keyword automations on a visual flow builder, a live Inbox, Contacts, and a Home page of DM metrics, in a console (Home, Contacts, Automation, AI, Inbox, Settings) that anyone who has used Manychat will find familiar. An AI setter that answers DMs in your voice with Claude is included as a beta, off by default. It runs on your own Cloudflare account through the official Instagram API. The Worker name is `atlas-chat`. Defaults for the business (Atlas AI), the site (rayenmehrez.me) and the community name (Atlas AI Academy) live in `scripts/setup.mjs`. Contact email, the DM link, the Meta app, and every token stay blank until setup.
 
 **First time here?** The user says "set this up" → follow [`SETUP.md`](SETUP.md). `npm run setup` (`scripts/setup.mjs`) does the work and continues where it stopped; `npm run check` says what works and what doesn't; `npm run update` brings a newer version live.
 
@@ -21,7 +21,7 @@ The database keeps a list of the files in `migrations/` it already has (table `_
 
 ## How it works
 
-Cloudflare Worker `fewchat`, D1 database `fewchat`, queue `fewchat-send`, Durable Object `LiveHub`, Workers AI.
+Cloudflare Worker `atlas-chat`, D1 database `atlas-chat`, queue `atlas-chat-send`, Durable Object `LiveHub` (SQLite), Workers AI. All five are on the Workers Free plan, with daily caps. Workers Paid ($5/mo) is not required to deploy. See docs/HOW-IT-WORKS.md, "What it costs to run". Do not upgrade the Cloudflare plan unless Rayen says so.
 
 1. **Inbound.** Webhook `POST /meta` (signed `X-Hub-Signature-256` with the Instagram app secret), field `messages` (echoes arrive inside it with `is_echo`). Attachments become `[voice note]`, `[image]`, `[shared a post]`, story replies are prefixed. Messages dedupe on Instagram `mid`. A missed-DM sync (`src/sync.ts`) runs every minute against the conversations API. Group chats only arrive through that sync and each is its own read-only Inbox conversation (`g:<thread id>`, sender per message); the AI never answers one.
 2. **Echoes** (anything sent from the account that this Worker didn't send: you by hand, another tool) are recorded as "YOU" and kill any pending draft. A thread is only drafted when its last message is from the lead.

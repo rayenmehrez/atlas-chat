@@ -589,7 +589,7 @@ function igConnectionCard(link: IgLink, note: string): string {
   const detail = !link.connected
     ? "No access token is stored yet."
     : link.username
-      ? "FewChat sends and reads as this account."
+      ? "AtlasChat sends and reads as this account."
       : "A token is stored. Use Verify connection to confirm the account.";
   return `<div class="card sec igc"><div class="ch"><span class="ic">${icon("instagram")}</span><div><h2>Instagram connection</h2><p>Paste a long-lived access token, or connect with Instagram.</p></div></div>
 ${note ? `<p class="ig-note" role="status">${esc(note)}</p>` : ""}
@@ -616,7 +616,7 @@ ${sec(
   "user",
   "Account",
   "Instagram and the link you send",
-  `<div class="opt"><div><div class="t">Instagram account</div><div class="d">The account FewChat sends from. Reconnect if the token ever expires.</div></div><a href="/auth/start">Reconnect</a></div>
+  `<div class="opt"><div><div class="t">Instagram account</div><div class="d">The account AtlasChat sends from. Reconnect if the token ever expires.</div></div><a href="/auth/start">Reconnect</a></div>
   <label style="margin-top:14px">Your link ({{SKOOL_LINK}} in automations and AI replies)</label><input type="url" name="skool_link" value="${esc(c.skool_link)}" required>`,
 )}
 ${sec(
@@ -626,7 +626,7 @@ ${sec(
   opt(
     "track_links",
     "Track link clicks",
-    "Your link goes out as a short FewChat link, so you can see who opened it. Instagram's link preview is not counted. The message shows the FewChat address instead of the real one.",
+    "Your link goes out as a short AtlasChat link, so you can see who opened it. Instagram's link preview is not counted. The message shows the AtlasChat address instead of the real one.",
   ),
 )}
 </form>

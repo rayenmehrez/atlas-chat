@@ -1,6 +1,6 @@
 // The optional AI's script: a warmth-routed DM framework (engage → rapport → permission → qualify → bridge → link →
 // close) that has closed real community sales in Instagram DMs. The structure, rules and actions are proven; the facts
-// and the voice are yours. FewChat runs without this: the AI can't be switched on while a <<FILL: ...>> is left, and
+// and the voice are yours. AtlasChat runs without this: the AI can't be switched on while a <<FILL: ...>> is left, and
 // nothing else needs it. To use the AI, fill every one in from your own offer and your own hand-typed DMs (docs/AI.md).
 // {{SKOOL_LINK}} is replaced with your link at send time; never let the model type a URL.
 

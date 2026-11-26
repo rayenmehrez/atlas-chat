@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// fc: run FewChat's automations from the terminal. Writes go through the console's own endpoints (same validation as
+// fc: run AtlasChat's automations from the terminal. Writes go through the console's own endpoints (same validation as
 // the editor), signed in with ADMIN_PASSWORD from .env; lists read D1 through wrangler. The Worker's address is ORIGIN
 // in src/brand.ts (FEWCHAT_URL in .env overrides it).
 //
@@ -31,7 +31,7 @@ const flags = {}, args = [];
 for (let i = 0; i < rest.length; i++) rest[i].startsWith("--") ? (flags[rest[i].slice(2)] = rest[i + 1] && !rest[i + 1].startsWith("--") ? rest[++i] : true) : args.push(rest[i]);
 
 const sql = (q) => JSON.parse(execFileSync("npx", ["wrangler", "d1", "execute", DB, "--remote", "--json", "--command", q], { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }))[0].results;
-const auth = { Authorization: "Basic " + Buffer.from("cli:" + env.ADMIN_PASSWORD).toString("base64"), "User-Agent": "curl/8 fewchat-cli" };
+const auth = { Authorization: "Basic " + Buffer.from("cli:" + env.ADMIN_PASSWORD).toString("base64"), "User-Agent": "curl/8 atlas-chat-cli" };
 async function call(path, body) {
   const r = await fetch(BASE + path, { method: "POST", redirect: "manual", headers: { ...auth, "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body ?? {}) });
   const text = await r.text();

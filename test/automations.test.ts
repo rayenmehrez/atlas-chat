@@ -642,3 +642,19 @@ describe("the published view: key metrics and the people behind them", () => {
     expect(b.published!.nodes.length).toBe(live.nodes.length);
   });
 });
+
+describe("starter templates", () => {
+  it("the reel template DMs a resource link and leaves a public reply", async () => {
+    const env = await connected();
+    const id = await newAutomation(env, "reel");
+    const row = await env.DB.prepare(`SELECT source, keyword, name, draft FROM triggers WHERE id = ?1`).bind(id).first<{ source: string; keyword: string; name: string; draft: string }>();
+    const graph = JSON.parse(row!.draft) as Graph;
+    expect(row).toMatchObject({ source: "comment", keyword: "LINK", name: "Reel comment → resource link" });
+    expect(graph.trigger.public_reply).toBe("Sent you a DM with the link.");
+    expect(JSON.stringify(graph)).toContain("{{SKOOL_LINK}}");
+    expect(graph.edges.map((e) => `${e.from}.${e.port}>${e.to}`).sort()).toEqual(["m1.send>m2", "trigger.next>m1"]);
+    const page = await (await get(env, "/admin/automations")).text();
+    expect(page).toContain("Reel comment → resource link");
+    expect(page).not.toContain("—");
+  });
+});

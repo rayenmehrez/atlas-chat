@@ -1,24 +1,29 @@
 {
-  "name": "fewchat",
+  "name": "atlas-chat",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
   "d1_databases": [
     // Your database: `npm run setup` creates it and fills in the id.
-    { "binding": "DB", "database_name": "fewchat", "database_id": "REPLACE_D1_DATABASE_ID" }
+    // D1 is on the Workers Free plan (5 million row reads and 100,000 row writes a day, 5 GB).
+    { "binding": "DB", "database_name": "atlas-chat", "database_id": "REPLACE_D1_DATABASE_ID" }
   ],
   // Workers AI: Deepgram/Whisper transcribe voice notes (src/media.ts).
+  // Free allocation is 10,000 neurons a day. Past that, transcription fails until midnight UTC unless the account is on Workers Paid.
   "ai": { "binding": "AI" },
   // Autopilot sends run here: typing pauses outlast the ~30s a webhook's waitUntil gets, a queue job has minutes.
-  // `npm run setup` creates the queue.
+  // Queues are on the Workers Free plan (10,000 operations a day, about 3 per message). `npm run setup` creates the queue.
+  // If this binding is absent, src/fastpath.ts and the cron send the draft inline instead.
   "queues": {
-    "producers": [{ "binding": "SEND_QUEUE", "queue": "fewchat-send" }],
-    "consumers": [{ "queue": "fewchat-send", "max_batch_size": 10, "max_batch_timeout": 1 }]
+    "producers": [{ "binding": "SEND_QUEUE", "queue": "atlas-chat-send" }],
+    "consumers": [{ "queue": "atlas-chat-send", "max_batch_size": 10, "max_batch_timeout": 1 }]
   },
   // Real-time Inbox: one Durable Object holds the open tabs' WebSockets and gets pinged on every change (src/live.ts).
+  // SQLite-backed Durable Objects are included on the Workers Free plan. The key-value backend is not used.
   "durable_objects": { "bindings": [{ "name": "LIVE", "class_name": "LiveHub" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LiveHub"] }],
   // Every minute: draft replies for threads that went quiet, send due autopilot drafts, expire stale ones.
+  // One cron trigger. The free plan allows 5 per account. Each invocation is capped at 10 ms of CPU on the free plan.
   "triggers": { "crons": ["* * * * *"] },
   "vars": {
     // The link your automations send as {{SKOOL_LINK}}: any link of yours (Settings in the console can change it later).
@@ -37,4 +42,6 @@
   // Passwords and keys never go in this file. They live in .env, and `npm run setup` stores them encrypted in the
   // Worker: INBOUND_SECRET, ADMIN_PASSWORD, META_VERIFY_TOKEN, META_APP_SECRET (Instagram app secret); optional
   // ANTHROPIC_API_KEY (the AI, reading photos), ALERT_TOPIC, SKOOL_AUTH_TOKEN, REVIEW_PASSWORD, MANYCHAT_API_KEY.
+  // An Instagram user access token is not one of those secrets. Put it in .env as IG_ACCESS_TOKEN and run
+  // `npm run setup`: it is stored in D1 (settings.ig_token), which is where the Worker reads and refreshes it.
 }

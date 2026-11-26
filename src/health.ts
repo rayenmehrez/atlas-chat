@@ -3,6 +3,7 @@
 // sends at most once an hour.
 
 import { ORIGIN } from "./brand";
+import { APP_NAME } from "./theme";
 import * as db from "./db";
 import type { Env } from "./setter";
 
@@ -21,7 +22,7 @@ export async function alert(env: Env, kind: string, title: string, body: string,
   await db.setSetting(env.DB, `alert_at:${kind}`, String(now));
   const res = await fetch(`https://ntfy.sh/${env.ALERT_TOPIC}`, {
     method: "POST",
-    headers: { Title: `FewChat: ${title}`, Tags: "warning", Click: `${ORIGIN}/admin/dashboard` },
+    headers: { Title: `${APP_NAME}: ${title}`, Tags: "warning", Click: `${ORIGIN}/admin/dashboard` },
     body: body.slice(0, 900),
   }).catch(() => null);
   return Boolean(res?.ok);

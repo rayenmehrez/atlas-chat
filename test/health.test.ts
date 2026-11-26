@@ -42,7 +42,7 @@ describe("phone alerts", () => {
     for (let i = 0; i < 51; i++)
       await e.DB.prepare(`INSERT INTO comments (comment_id, subscriber_id, text, status, created_at) VALUES (?1, 'x', 'AGENT', 'queued', ?2)`).bind(`q${i}`, T - 5 * MIN).run();
     await checkHealth(e, T);
-    expect(pushes.map((p) => p.title)).toEqual(["FewChat: 3 sends failed in 15 min", "FewChat: 51 comment DMs waiting"]);
+    expect(pushes.map((p) => p.title)).toEqual(["AtlasChat: 3 sends failed in 15 min", "AtlasChat: 51 comment DMs waiting"]);
     expect(pushes[0].body).toContain("boom");
   });
 

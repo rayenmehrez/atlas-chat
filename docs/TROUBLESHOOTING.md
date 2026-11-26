@@ -6,7 +6,7 @@
 npm run check
 ```
 
-It looks at your live FewChat and lists what works and what doesn't, with the fix next to each problem. Most of this page is the longer version of what it tells you.
+It looks at your live AtlasChat and lists what works and what doesn't, with the fix next to each problem. Most of this page is the longer version of what it tells you.
 
 Running `npm run setup` again is always safe. It never deletes anything and continues from wherever it stopped.
 
@@ -15,12 +15,12 @@ Running `npm run setup` again is always safe. It never deletes anything and cont
 | What you see | What to do |
 | --- | --- |
 | `npm: command not found` or `node: command not found` | Node.js isn't installed. Get it from nodejs.org (the "LTS" button), close and reopen your terminal, try again. |
-| "FewChat needs Node 22 or newer" | Install the current version from nodejs.org over the old one. |
+| "AtlasChat needs Node 22 or newer" | Install the current version from nodejs.org over the old one. |
 | The browser tab for Cloudflare never opened | Run `npm run setup` again. If it still doesn't open, copy the link the terminal prints into your browser. |
 | "Cloudflare wants your email address verified" | Click the link in the email Cloudflare sent when you signed up, then run setup again. |
 | "doesn't have a workers.dev address yet" | Every Cloudflare account picks one name, once. Open dash.cloudflare.com → Workers & Pages, choose a subdomain, then run setup again. |
-| "already has a Worker called fewchat" | Something with that name is already on your Cloudflare account. Setup stops instead of replacing it and prints the two ways forward. |
-| Something about your plan, or queues | Open dash.cloudflare.com → Workers & Pages → Plans and switch to Workers Paid ($5 a month), then run setup again. |
+| "already has a Worker called atlas-chat" | Something with that name is already on your Cloudflare account. Setup stops instead of replacing it and prints the two ways forward. |
+| Something about your plan, or queues | Queues, D1, cron, Workers AI and SQLite Durable Objects are all on the free plan. Read the error. Do not switch to Workers Paid ($5 a month) unless it says the account must, and you have decided to pay. The caps are in docs/HOW-IT-WORKS.md. |
 | Anything else | The full details are in `.wrangler/setup.log`. It can contain your Cloudflare account id and email, so read it before sharing it. |
 
 ## The Meta app
@@ -42,7 +42,7 @@ These are the steps in `MY-SETUP.md`. The step number is where to look.
 
 1. **Is the Meta app Live?** Step 9. In Development mode, Instagram only delivers messages from accounts that have a role on your app.
 2. **Was the webhook saved, with the fields switched on?** Step 5. The fields are separate switches under the callback URL.
-3. **Is Instagram connected?** Logging in with Instagram the first time is what tells Instagram to send this account's messages to your FewChat. If in doubt, open `<your address>/auth/start` and approve again, or paste a new long-lived token under Settings. It's harmless.
+3. **Is Instagram connected?** Logging in with Instagram the first time is what tells Instagram to send this account's messages to your AtlasChat. If in doubt, open `<your address>/auth/start` and approve again, or paste a new long-lived token under Settings. It's harmless.
 4. **Test from a different account.** A message you send to yourself doesn't count.
 
 ## An automation isn't firing
@@ -57,21 +57,21 @@ These are the steps in `MY-SETUP.md`. The step number is where to look.
 ## A DM wasn't delivered
 
 - **"The requested user cannot be found"**: that account was deleted or blocked you. Nothing to fix.
-- **Sent too late**: more than 24 hours since their last message. Instagram's rule, and FewChat doesn't try.
+- **Sent too late**: more than 24 hours since their last message. Instagram's rule, and AtlasChat doesn't try.
 - **"not the thread owner"**: another DM tool on the same Instagram account owns that conversation. Don't run the same keyword in two tools.
 - **Buttons don't show**: buttons and quick replies only appear in the Instagram phone app, not on desktop.
-- **Lots waiting to send**: Instagram allows about 750 comment DMs an hour. FewChat queues the rest and sends them as the hour rolls on.
+- **Lots waiting to send**: Instagram allows about 750 comment DMs an hour. AtlasChat queues the rest and sends them as the hour rolls on.
 
 ## The console
 
 - **Forgot the password?** It's in `MY-SETUP.md`, and in `.env` as `ADMIN_PASSWORD`. To change it: edit that line in `.env`, then run `npm run setup`.
 - **No "Log in with Instagram" button?** Phones only get the password form, because the Instagram app takes over its approval screen. Use the password, or a computer.
 - **A "busy" page that reloads itself**: something failed for a moment. If it stays, see "Everything stopped" below.
-- **"Log in with Instagram" refuses you**: it only lets in the Instagram account this FewChat was set up for. Wrong username in setup? Fix `instagram_handle` in `fewchat.config.json` and run `npm run setup`.
+- **"Log in with Instagram" refuses you**: it only lets in the Instagram account this AtlasChat was set up for. Wrong username in setup? Fix `instagram_handle` in `fewchat.config.json` and run `npm run setup`.
 
 ## Everything stopped at once
 
-On Cloudflare's free plan the database can only be read so much per day. A busy inbox uses it up, and then the console, your automations and incoming messages all pause until midnight UTC. Nothing is lost: missed comments and messages are picked up afterwards. The lasting fix is Workers Paid ($5 a month): dash.cloudflare.com → Workers & Pages → Plans.
+On Cloudflare's free plan the database can only be read 5 million rows a day. A busy inbox uses that up, and then the console, your automations and incoming messages all pause until midnight UTC. Nothing is lost: missed comments and messages are picked up afterwards. Workers Paid ($5 a month) removes that ceiling. Stay on the free plan until you decide the cap is the problem.
 
 ## Watching it live
 
@@ -79,28 +79,28 @@ On Cloudflare's free plan the database can only be read so much per day. A busy 
 npx wrangler tail
 ```
 
-Shows what your FewChat is doing right now, as it happens. Send yourself a test DM and watch it arrive. Press Ctrl+C to stop.
+Shows what your AtlasChat is doing right now, as it happens. Send yourself a test DM and watch it arrive. Press Ctrl+C to stop.
 
-## Starting over, or removing FewChat
+## Starting over, or removing AtlasChat
 
 To redo your answers: delete `fewchat.config.json` and run `npm run setup`.
 
-To remove FewChat from Cloudflare completely (this deletes your conversations and automations for good), run these in order. Replace `fewchat` if you chose another name:
+To remove AtlasChat from Cloudflare completely (this deletes your conversations and automations for good), run these in order. Replace `atlas-chat` if you chose another name:
 
 ```bash
-npx wrangler queues consumer remove fewchat-send fewchat
+npx wrangler queues consumer remove atlas-chat-send atlas-chat
 ```
 
 ```bash
-npx wrangler delete --name fewchat
+npx wrangler delete --name atlas-chat
 ```
 
 ```bash
-npx wrangler queues delete fewchat-send
+npx wrangler queues delete atlas-chat-send
 ```
 
 ```bash
-npx wrangler d1 delete fewchat
+npx wrangler d1 delete atlas-chat
 ```
 
 Then delete your app on developers.facebook.com, and remove it in Instagram under Settings → Website permissions → Apps and websites.

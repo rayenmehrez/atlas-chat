@@ -1,4 +1,4 @@
-# SETUP.md: from this folder to a live FewChat
+# SETUP.md: from this folder to a live AtlasChat
 
 **If you're a person:** you don't need this page. Run `npm run setup` and follow it. The README has the short version.
 
@@ -8,7 +8,7 @@
 
 - **`npm run setup` does the work.** Don't run wrangler commands by hand, don't edit `wrangler.jsonc` or `src/brand.ts` (they are built from `templates/` and `fewchat.config.json`), and don't re-implement its steps. If it stops, it says why and what to do; fix that and run it again. It always continues where it left off.
 - **Secrets never go in chat.** The user pastes them into `.env` themselves. Never `cat .env`, never read `MY-SETUP.md` aloud (it holds their console password): tell the user to open it.
-- **Never use `--replace`** unless the user says the existing Worker is an old FewChat of theirs.
+- **Never use `--replace`** unless the user says the existing Worker is an old AtlasChat of theirs.
 - You can't answer the script's questions as it runs, so pass the answers as flags (below). Run by an agent, it never asks: it pauses, prints what it needs, and exits.
 
 ## 0. Before you start
@@ -32,20 +32,22 @@ Optional: their website, and one link their DMs should be able to send (a site, 
 
 ## 2. Run setup
 
+This fork already defaults to `@rayen.mhz`, business `Atlas AI`, website `rayenmehrez.me`, community `Atlas AI Academy`, Worker `atlas-chat`. Still ask for a contact email they are fine publishing. Do not invent one.
+
 ```bash
-npm run setup -- --handle=<username> --business="<name>" --email=<email>
+npm run setup -- --email=<email>
 ```
 
-Add `--website=<site>` and `--link=<https link>` if they gave them.
+Add `--link=<https link>` when they name the link automations should send. Until then `SKOOL_LINK` stays `https://REPLACE_YOUR_LINK`. Override a default with `--handle=`, `--business=`, `--website=` or `--name=` if they ask.
 
-A browser tab opens for Cloudflare: tell them to sign in (or create a free account) and click **Allow**. Then setup creates the database and queue, builds the tables, makes their passwords, puts FewChat live, and writes `MY-SETUP.md`. It pauses at "Waiting on the Meta app".
+A browser tab opens for Cloudflare: tell them to sign in (or create a free account) and click **Allow**. Then setup creates the database and queue, builds the tables, makes their passwords, puts AtlasChat live, and writes `MY-SETUP.md`. It pauses at "Waiting on the Meta app".
 
 If it pauses earlier:
 
 - **More than one Cloudflare account**: it lists them. Ask which, run again with `--account=<id>`.
 - **No workers.dev address yet** (brand-new Cloudflare accounts): they pick a subdomain once at dash.cloudflare.com → Workers & Pages. Then run setup again.
-- **A Worker with this name already exists**: ask whether it's an old FewChat of theirs. If not, run again with `--name=fewchat-2`.
-- **Anything about their plan**: Workers Paid, $5 a month, at dash.cloudflare.com → Workers & Pages → Plans.
+- **A Worker with this name already exists**: ask whether it's an old install of theirs. If not, run again with `--name=atlas-chat-2`.
+- **Anything about their plan**: read docs/HOW-IT-WORKS.md, "What it costs to run". Queues and the other bindings deploy on the free plan. Do not switch to Workers Paid ($5 a month) unless they say so.
 
 ## 3. The Meta app (the user clicks, you guide)
 
@@ -78,10 +80,15 @@ It stores the secret, puts the final version live and pauses at "Connect your In
 
 ## 4. Connect Instagram
 
+The Worker does not read an access token from a Wrangler secret. It reads `ig_token` from D1. Two ways to put it there:
+
+- **Log in with Instagram** (usual). OAuth exchanges a short code for a 60-day token, saves it, subscribes to DMs and comments, and the cron refreshes it weekly. The app id (`--app-id`) and `META_APP_SECRET` are required for that exchange and for webhook signatures. They are not the user token.
+- **A token they already have.** They paste a long-lived Instagram user token into `.env` as `IG_ACCESS_TOKEN=` (they paste it, you never read `.env` aloud). Then `npm run setup` checks it is for `@rayen.mhz`, writes it to D1, and subscribes. Weekly refresh only works if that token was issued by this same Meta app. A short-lived token or a token from another app will fail later. Prefer the button when they don't already have the right token.
+
 Tell the user to, on a computer (the button isn't shown on phones):
 
 1. Open `<url>/login` and click **Log in with Instagram**.
-2. Log in as the account they gave in step 1 and approve the three permissions. The first sign-in connects the account; any other Instagram account is turned away.
+2. Log in as `@rayen.mhz` and approve the three permissions. The first sign-in connects the account; any other Instagram account is turned away.
 
 If Instagram shows an error instead, it names the cause (the redirect URI from Meta step 6, or the tester invite from step 8). They can always get in with the password from `MY-SETUP.md` on the same page, then click **Connect Instagram** at the top left.
 
@@ -100,14 +107,14 @@ Every line should have a ✓ except "Nothing has ever arrived from Instagram", w
 From a **second** Instagram account (a friend's or a spare; a message to yourself doesn't count):
 
 1. **A DM.** Send the account a DM. It should be in the console's Inbox within seconds, and `npm run check` now shows Instagram's last delivery. Nothing arriving means step 9 (not Live) or step 5 (webhook) in almost every case.
-2. **A comment automation.** In the console: Automation → New Automation → the template **Comment keyword → DM link** → pick a post, a test keyword and their link → **Publish**. Comment the keyword from the second account: the DM arrives within seconds.
+2. **A comment automation.** In the console: Automation → New Automation → the template **Reel comment → resource link** → pick a Reel, keep or change the keyword, set the link → **Publish**. Comment the keyword from the second account: the DM arrives within seconds.
 
 Done = both worked. Show them where things are: the console address, `MY-SETUP.md`, `npm run check`, `npm run update`.
 
 ## 6. Offer the extras, one question each
 
 - **Phone alerts** (recommended): install the free ntfy app, subscribe to a long random topic, put it in `.env` as `ALERT_TOPIC=`, run `npm run setup`.
-- **Workers Paid** ($5 a month): once people message them daily. See docs/HOW-IT-WORKS.md, "What it costs to run".
+- **Workers Paid** ($5 a month): only if they ask, after reading docs/HOW-IT-WORKS.md, "What it costs to run". The free plan deploys this app. Do not upgrade for them.
 - **AI replies (beta)**: docs/AI.md. When they say "help me write the AI script": interview them one short question at a time (what they sell, the price, what's inside, real member results, who buys), and ask them to paste 10 to 20 messages they really typed to people in their DMs. Build the voice from those messages, not from adjectives. Fill every `<<FILL: ...>>` in `src/prompt.ts` and `src/knowledge.ts`, keep the framework, objections and actions as written, then `npm run setup`. They add `ANTHROPIC_API_KEY=` to `.env` themselves.
 - **Also running Manychat on this account?** Read CLAUDE.md, "Manychat", before moving any keyword over.
 - **Past conversations**: `scripts/backfill.mjs` imports DM history (CLAUDE.md, Lab Notes). 90 days is plenty.
