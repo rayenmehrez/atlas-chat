@@ -83,7 +83,7 @@ Checked against Cloudflare's pricing docs. These bindings are in `templates/wran
 - **Queue**: a waiting line for outgoing messages, so they go out in order and under Instagram's hourly limit.
 - **Secret**: a password or key stored encrypted in your Worker.
 - **Terminal**: the app where you type commands (Terminal on a Mac, PowerShell on Windows).
-- **Token**: Instagram's 60-day pass that lets AtlasChat act for your account. AtlasChat renews it by itself.
+- **Token**: Instagram's 60-day pass that lets AtlasChat act for your account. Log in with Instagram, or paste a long-lived token under Settings. AtlasChat renews it by itself and never shows it back.
 - **Trigger**: what starts an automation: a comment, a story reply, a DM keyword.
 - **Webhook**: the notification Instagram sends your AtlasChat the moment something happens.
 - **Worker**: Cloudflare's name for a small always-on program. Your AtlasChat is one.

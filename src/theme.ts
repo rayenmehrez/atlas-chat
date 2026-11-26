@@ -431,6 +431,19 @@ html:has(.ib),body:has(.ib){height:100%;overflow:hidden}
 .switch span{position:absolute;inset:0;background:var(--track);border-radius:13px;transition:.2s;cursor:pointer}
 .switch span:before{content:"";position:absolute;width:22px;height:22px;left:2px;top:2px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 .switch input:checked+span{background:var(--ink)}.switch input:checked+span:before{transform:translateX(18px);background:var(--bg)}
+/* Instagram connection card: AtlasChat green, readable in both themes */
+.igc{border-color:#1A3C34}
+.igc .ch h2,.ig-alt a{color:#1A3C34}
+.ig-status{display:flex;align-items:center;gap:8px}
+.ig-dot{width:8px;height:8px;border-radius:50%;background:var(--mut);flex:none}
+.ig-dot.on{background:#1A3C34}
+.igc .ig-note{margin:0 0 4px;padding:10px 12px;border-radius:8px;background:color-mix(in srgb,#1A3C34 10%,var(--panel));color:var(--ink);font-size:13px;line-height:18px}
+.igc button.ig-save{background:#1A3C34;color:#fff}
+.igc button.ig-save:hover{background:#122822}
+.ig-alt{margin:14px 0 0;font-size:13px;line-height:18px;color:var(--mut)}
+:root[data-theme=dark] .igc .ch h2,:root[data-theme=dark] .ig-alt a{color:#d7ebe4}
+:root[data-theme=dark] .ig-dot.on{background:#8fbfb0}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .igc .ch h2,:root:not([data-theme=light]) .ig-alt a{color:#d7ebe4}:root:not([data-theme=light]) .ig-dot.on{background:#8fbfb0}}
 .tog{position:relative;width:36px;height:22px;border-radius:11px;background:var(--track);flex:none;transition:.2s}
 .tog:before{content:"";position:absolute;width:18px;height:18px;left:2px;top:2px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
 .tog.on{background:var(--green)}.tog.on:before{transform:translateX(14px)}

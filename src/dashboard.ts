@@ -11,6 +11,7 @@ import { STAGES } from "./brain";
 import * as db from "./db";
 import { BASE_URL } from "./links";
 import { COMMUNITY, skoolLinkSql } from "./brand";
+import { clearInstagramToken, crossSite, igNote, instagramLink, isPreviewHost, storeInstagramToken, verifyInstagramToken, type IgLink } from "./ig_token";
 import { react } from "./meta";
 import { flowChart } from "./flowchart";
 import { waitingLeads } from "./health";
@@ -582,11 +583,32 @@ const settingsBits = (c: Awaited<ReturnType<typeof getConfig>>) => {
   };
 };
 
+// The token field is its own form. Putting it inside #set would submit an empty password with every Save, and the
+// title-bar Save button (form="set") would post the token field too.
+function igConnectionCard(link: IgLink, note: string): string {
+  const detail = !link.connected
+    ? "No access token is stored yet."
+    : link.username
+      ? "AtlasChat sends and reads as this account."
+      : "A token is stored. Use Verify connection to confirm the account.";
+  return `<div class="card sec igc"><div class="ch"><span class="ic">${icon("instagram")}</span><div><h2>Instagram connection</h2><p>Paste a long-lived access token, or connect with Instagram.</p></div></div>
+${note ? `<p class="ig-note" role="status">${esc(note)}</p>` : ""}
+<div class="opt"><div><div class="t ig-status"><span class="ig-dot${link.connected ? " on" : ""}" aria-hidden="true"></span>${esc(link.label)}</div><div class="d">${detail}</div></div></div>
+<form method="post" action="/admin/settings/instagram" autocomplete="off">
+<label for="ig_access_token">Instagram access token</label>
+<input id="ig_access_token" name="ig_access_token" type="password" autocomplete="off" spellcheck="false" autocapitalize="off" maxlength="2000" placeholder="Paste a long-lived access token">
+<div class="ig-actions"><button class="ig-save" name="intent" value="save">Save token</button><button class="ghost" name="intent" value="verify">Verify connection</button></div>
+</form>
+<form method="post" action="/admin/settings/instagram"><button class="ghost" name="intent" value="remove">Remove token</button></form>
+<p class="ig-alt"><a href="/auth/start">Connect with Instagram</a></p></div>`;
+}
+
 // Settings: the account and the link. Everything about the AI setter is on the AI page. The form names its section,
 // so saving here never touches the AI's settings (and the other way round).
-export async function settingsPage(env: Env, saved: boolean): Promise<Response> {
+export async function settingsPage(env: Env, saved: boolean, ig = ""): Promise<Response> {
   const c = await getConfig(env);
   const { opt, sec } = settingsBits(c);
+  const link = await instagramLink(env);
   return page(
     "Settings",
     `<form id="set" method="post" action="/admin/settings" oninput="document.getElementById('save').textContent='Save'"><input type="hidden" name="section" value="general">
@@ -607,7 +629,8 @@ ${sec(
     "Your link goes out as a short AtlasChat link, so you can see who opened it. Instagram's link preview is not counted. The message shows the AtlasChat address instead of the real one.",
   ),
 )}
-</form>`,
+</form>
+${igConnectionCard(link, igNote(ig))}`,
     "admin",
     env,
     { actions: `<button id="save" form="set">${saved ? "Saved" : "Save"}</button>` },
@@ -752,9 +775,28 @@ export async function consoleRoute(env: Env, req: Request, pathname: string, who
     await saveFriends(env, await req.formData(), now);
     return to("/admin/ai");
   }
+  if (pathname === "/admin/settings/instagram") {
+    if (who !== "admin") return forbidden;
+    if (req.method !== "POST") return to("/admin/settings");
+    if (crossSite(req)) return new Response("cross-origin request refused", { status: 403 });
+    const form = await req.formData();
+    const intent = String(form.get("intent") ?? "");
+    const preview = isPreviewHost(req);
+    const pasted = String(form.get("ig_access_token") ?? "");
+    let code = "invalid";
+    if (intent === "remove") {
+      await clearInstagramToken(env);
+      code = "removed";
+    } else if (intent === "verify" && !pasted.trim()) {
+      code = await verifyInstagramToken(env, { preview, now });
+    } else if (intent === "save" || intent === "verify") {
+      code = await storeInstagramToken(env, pasted, { preview, now });
+    } else return new Response("not found", { status: 404 });
+    return to(`/admin/settings?ig=${code}`);
+  }
   if (pathname === "/admin/settings") {
     if (who !== "admin") return forbidden;
-    if (req.method === "GET") return settingsPage(env, url.searchParams.has("saved"));
+    if (req.method === "GET") return settingsPage(env, url.searchParams.has("saved"), url.searchParams.get("ig") ?? "");
     const form = await req.formData();
     await saveSettings(env, form);
     return to(form.get("section") === "ai" ? "/admin/ai?saved=1" : "/admin/settings?saved=1");

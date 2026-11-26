@@ -42,7 +42,7 @@ These are the steps in `MY-SETUP.md`. The step number is where to look.
 
 1. **Is the Meta app Live?** Step 9. In Development mode, Instagram only delivers messages from accounts that have a role on your app.
 2. **Was the webhook saved, with the fields switched on?** Step 5. The fields are separate switches under the callback URL.
-3. **Is Instagram connected?** Logging in with Instagram the first time is what tells Instagram to send this account's messages to your AtlasChat. If in doubt, open `<your address>/auth/start` and approve again. It's harmless.
+3. **Is Instagram connected?** Logging in with Instagram the first time is what tells Instagram to send this account's messages to your AtlasChat. If in doubt, open `<your address>/auth/start` and approve again, or paste a new long-lived token under Settings. It's harmless.
 4. **Test from a different account.** A message you send to yourself doesn't count.
 
 ## An automation isn't firing

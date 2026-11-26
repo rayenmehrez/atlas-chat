@@ -64,8 +64,11 @@ export async function me(env: Env, now = Date.now()): Promise<Me | null> {
     const token = await db.getSetting(env.DB, "ig_token");
     if (!token) return cur;
     const a = await fetchAccount(token);
-    if (typeof a?.username !== "string") return cur;
-    const next = { username: a.username, name: a.name ?? null, pic: a.profile_picture_url ?? null, at: now };
+    // Never cache a field that contains the access token: the sidebar renders username, name and pic.
+    if (typeof a?.username !== "string" || a.username.includes(token)) return cur;
+    const pic = a.profile_picture_url && !a.profile_picture_url.includes(token) ? a.profile_picture_url : null;
+    const name = a.name && !a.name.includes(token) ? a.name : null;
+    const next = { username: a.username, name, pic, at: now };
     await db.setSetting(env.DB, "ig_profile", JSON.stringify(next));
     return next;
   } catch {
