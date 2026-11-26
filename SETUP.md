@@ -85,6 +85,8 @@ Tell the user to, on a computer (the button isn't shown on phones):
 
 If Instagram shows an error instead, it names the cause (the redirect URI from Meta step 6, or the tester invite from step 8). They can always get in with the password from `MY-SETUP.md` on the same page, then click **Connect Instagram** at the top left.
 
+They can also paste a long-lived Instagram access token under **Settings**, in **Instagram connection**. That stores the same connection as the button. The box is masked, and the token is never shown again. **Connect with Instagram** on that card is the same approval flow.
+
 Then run:
 
 ```bash

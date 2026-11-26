@@ -71,7 +71,7 @@ Setup makes them on your computer and puts them in two places:
 - **Queue**: a waiting line for outgoing messages, so they go out in order and under Instagram's hourly limit.
 - **Secret**: a password or key stored encrypted in your Worker.
 - **Terminal**: the app where you type commands (Terminal on a Mac, PowerShell on Windows).
-- **Token**: Instagram's 60-day pass that lets FewChat act for your account. FewChat renews it by itself.
+- **Token**: Instagram's 60-day pass that lets FewChat act for your account. Log in with Instagram, or paste a long-lived token under Settings. FewChat renews it by itself and never shows it back.
 - **Trigger**: what starts an automation: a comment, a story reply, a DM keyword.
 - **Webhook**: the notification Instagram sends your FewChat the moment something happens.
 - **Worker**: Cloudflare's name for a small always-on program. Your FewChat is one.

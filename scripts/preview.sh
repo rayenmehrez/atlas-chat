@@ -15,7 +15,9 @@ if [ "${1:-}" = "--reset" ] || [ ! -f "$DIR/seeded" ]; then
   rm -rf "$DIR" && mkdir -p "$DIR"
   run() { npx wrangler d1 execute "$DB" --local --persist-to "$DIR" -y "$@" >/dev/null; }
   run --file schema.sql
-  for f in $(ls migrations/*.sql | sort); do run --file "$f"; done
+  # Byte order, same as Node's readdir().sort() in setup and the tests. A locale that ignores
+  # punctuation would run automations_2.sql before automations.sql and the seed would miss columns.
+  while IFS= read -r f; do run --file "$f"; done < <(printf '%s\n' migrations/*.sql | LC_ALL=C sort)
   node scripts/preview-seed.mjs > "$DIR/seed.sql"
   run --file "$DIR/seed.sql"
   touch "$DIR/seeded"
