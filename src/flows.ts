@@ -12,7 +12,7 @@ import * as db from "./db";
 import { logError } from "./health";
 import { findByName, loadGraph, publish, type ActionItem, type Bubble, type Graph, type MessageData, type Node, type QuickReply, type Rule, type Variant } from "./graph";
 import { fillLink } from "./manychat";
-import { fetchProfile, graph, redactSecrets, senderAction, subscribe, type MetaEvent } from "./meta";
+import { fetchProfile, graph, normalizeWebhook, redactSecrets, senderAction, subscribe, type MetaEvent } from "./meta";
 import { pace, type Env } from "./setter";
 
 const INLINE_DELAY_S = 15; // webhook work gets about 30s after the response
@@ -70,7 +70,7 @@ interface RawEntry {
 }
 
 const entries = (payload: unknown): RawEntry[] => {
-  const p = payload as { object?: string; entry?: RawEntry[] };
+  const p = normalizeWebhook(payload) as { object?: string; entry?: RawEntry[] };
   return p?.object === "instagram" && Array.isArray(p.entry) ? p.entry : [];
 };
 
@@ -504,6 +504,17 @@ export async function handleInboundFlow(env: Env, token: string, ev: MetaEvent, 
   if (await startTestRun(env, token, ev.lead_id, sig?.text ?? ev.text, now)) return true;
   const sources = sig?.mention ? ["mention"] : sig?.story ? ["story", "dm"] : ["dm"];
   const text = sig?.text ?? ev.text;
+  // A comment DM Instagram refused as too many new conversations, whose public reply told them to DM the keyword,
+  // runs the automation for the post they commented on (several posts can share a keyword).
+  const owed = await env.DB.prepare(
+    `SELECT t.* FROM comments c JOIN triggers t ON t.id = c.trigger_id
+     WHERE c.status = 'queued' AND c.subscriber_id = ?1 AND c.error LIKE '%thread does not exist%' AND t.enabled = 1 AND t.deleted_at IS NULL
+     ORDER BY c.created_at DESC`,
+  )
+    .bind(ev.lead_id)
+    .all<Trigger>();
+  const due = owed.results.find((t) => t.keyword.split(",").some((k) => k.trim() !== "*" && matches(k, text)));
+  if (due && (await startFlow(env, token, due.id, ev.lead_id, now, text))) return true;
   const { results } = await env.DB.prepare(`SELECT * FROM triggers WHERE enabled = 1 AND deleted_at IS NULL AND source IN (SELECT value FROM json_each(?1)) ORDER BY id`)
     .bind(JSON.stringify(sources))
     .all<Trigger>();

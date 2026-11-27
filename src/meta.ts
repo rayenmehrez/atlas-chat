@@ -181,7 +181,7 @@ export function webhookParts(m: { reply_to?: { story?: { url?: string; id?: stri
 // mid -> parts for every message in a webhook payload that has any.
 export function parseParts(payload: unknown): Map<string, Part[]> {
   const out = new Map<string, Part[]>();
-  const p = payload as { object?: string; entry?: { messaging?: { message?: RawMessaging["message"] & { reply_to?: { story?: { url?: string; id?: string } } } }[] }[] };
+  const p = normalizeWebhook(payload) as { object?: string; entry?: { messaging?: { message?: RawMessaging["message"] & { reply_to?: { story?: { url?: string; id?: string } } } }[] }[] };
   if (p?.object !== "instagram" || !Array.isArray(p.entry)) return out;
   for (const entry of p.entry) {
     for (const ev of entry.messaging ?? []) {
@@ -198,7 +198,7 @@ export function parseParts(payload: unknown): Map<string, Part[]> {
 // a message back through the API has no reply field, so it's saved now or never.
 export function parseReplies(payload: unknown): Map<string, string> {
   const out = new Map<string, string>();
-  const p = payload as { object?: string; entry?: { messaging?: RawMessaging[] }[] };
+  const p = normalizeWebhook(payload) as { object?: string; entry?: { messaging?: RawMessaging[] }[] };
   if (p?.object !== "instagram" || !Array.isArray(p.entry)) return out;
   for (const entry of p.entry) {
     for (const ev of entry.messaging ?? []) {
@@ -212,7 +212,7 @@ export function parseReplies(payload: unknown): Map<string, string> {
 
 // Reactions, edits and unsends: small updates to a message we already have.
 export function parseMessageUpdates(payload: unknown): MessageUpdate[] {
-  const p = payload as {
+  const p = normalizeWebhook(payload) as {
     object?: string;
     entry?: {
       id?: string;
@@ -239,8 +239,35 @@ export function parseMessageUpdates(payload: unknown): MessageUpdate[] {
   return out;
 }
 
+// Unified Login (and Facebook Login) can deliver the same events as `changes[]` instead of `messaging[]`,
+// and a comment's id as `comment_id` rather than `id`. Instagram Login still uses `messaging[]` and `value.id`.
+// Fold the changes-shaped events into `messaging` so every parser below sees one shape. Safe to call twice.
+const MESSAGING_FIELDS = new Set(["messages", "message_reactions", "messaging_postbacks", "messaging_referral", "messaging_seen", "message_edit", "message_edits"]);
+
+export function normalizeWebhook(payload: unknown): unknown {
+  const p = payload as { object?: string; entry?: Record<string, unknown>[] };
+  if (p?.object !== "instagram" || !Array.isArray(p.entry)) return payload;
+  return {
+    ...p,
+    entry: p.entry.map((entry) => {
+      const existing = Array.isArray(entry.messaging) ? (entry.messaging as unknown[]) : [];
+      const changes = Array.isArray(entry.changes) ? (entry.changes as { field?: string; value?: unknown }[]) : [];
+      const seen = new Set(existing.map((ev) => JSON.stringify(ev)));
+      const messaging = [...existing];
+      for (const ch of changes) {
+        if (!ch?.field || !MESSAGING_FIELDS.has(ch.field) || !ch.value || typeof ch.value !== "object") continue;
+        const key = JSON.stringify(ch.value);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        messaging.push(ch.value);
+      }
+      return { ...entry, messaging };
+    }),
+  };
+}
+
 export function parseWebhook(payload: unknown): MetaEvent[] {
-  const p = payload as { object?: string; entry?: { id?: string; messaging?: RawMessaging[] }[] };
+  const p = normalizeWebhook(payload) as { object?: string; entry?: { id?: string; messaging?: RawMessaging[] }[] };
   if (p?.object !== "instagram" || !Array.isArray(p.entry)) return [];
   const events: MetaEvent[] = [];
   for (const entry of p.entry) {
@@ -277,10 +304,11 @@ export interface MetaComment {
 
 interface RawChange {
   field?: string;
-  value?: { id?: string; text?: string; from?: { id?: string; username?: string }; media?: { id?: string } };
+  value?: { id?: string; comment_id?: string; text?: string; from?: { id?: string; username?: string }; media?: { id?: string } };
 }
 
 // "comments" and "live_comments" webhook changes. Skips the account's own comments (including our public replies).
+// Instagram Login sends the comment id as `id`. Unified Login sends it as `comment_id`.
 export function parseComments(payload: unknown): MetaComment[] {
   const p = payload as { object?: string; entry?: { id?: string; changes?: RawChange[] }[] };
   if (p?.object !== "instagram" || !Array.isArray(p.entry)) return [];
@@ -288,9 +316,10 @@ export function parseComments(payload: unknown): MetaComment[] {
   for (const entry of p.entry) {
     for (const ch of entry.changes ?? []) {
       const v = ch.value;
-      if ((ch.field !== "comments" && ch.field !== "live_comments") || !v?.id || !v.from?.id || !v.text) continue;
+      const commentId = v?.id ?? v?.comment_id;
+      if ((ch.field !== "comments" && ch.field !== "live_comments") || !commentId || !v?.from?.id || !v.text) continue;
       if (v.from.id === entry.id) continue;
-      out.push({ comment_id: v.id, lead_id: v.from.id, username: v.from.username ?? null, media_id: v.media?.id ?? null, text: v.text });
+      out.push({ comment_id: commentId, lead_id: v.from.id, username: v.from.username ?? null, media_id: v.media?.id ?? null, text: v.text });
     }
   }
   return out;
@@ -400,10 +429,10 @@ export async function instagramAccountId(token: string): Promise<string> {
     if (!account.id) throw new Error("instagram 400: no assigned Instagram account");
     return account.id;
   }
-  const me = await graph<{ user_id?: string; id?: string }>(`/me?fields=user_id`, { headers: { Authorization: `Bearer ${token}` } });
-  const id = me.user_id ?? me.id;
-  if (!id) throw new Error("instagram: no user id");
-  return String(id);
+  // `id` on /me is app-scoped. Conversations and webhooks use `user_id` (the same value Unified Login returns).
+  const me = await graph<{ user_id?: string }>(`/me?fields=user_id`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!me.user_id) throw new Error("instagram: no user id");
+  return String(me.user_id);
 }
 
 export async function graph<T>(path: string, init?: RequestInit): Promise<T> {
@@ -582,10 +611,16 @@ export async function refreshToken(token: string): Promise<string | null> {
   return body.access_token;
 }
 
+// Instagram Login's subscribed fields. Unified Login uses the instagram_* names from Meta's migration guide
+// (message_reactions and messaging_referral are how button taps and ig.me opens arrive on that setup).
+const IG_SUBSCRIBED_FIELDS = "messages,messaging_postbacks,messaging_seen,comments,live_comments";
+const UNIFIED_SUBSCRIBED_FIELDS = "messages,message_reactions,messaging_postbacks,messaging_referral,messaging_seen,comments,live_comments";
+
 export async function subscribe(token: string): Promise<void> {
   // Local preview must not change the live account's webhook subscription.
   if (!instagramWritesAllowed()) return;
-  const q = new URLSearchParams({ subscribed_fields: "messages,messaging_postbacks,messaging_seen,comments,live_comments" });
+  const fields = isUnifiedLoginToken(token) ? UNIFIED_SUBSCRIBED_FIELDS : IG_SUBSCRIBED_FIELDS;
+  const q = new URLSearchParams({ subscribed_fields: fields });
   await graph(`/me/subscribed_apps?${q}`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
 }
 

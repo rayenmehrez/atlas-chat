@@ -88,7 +88,11 @@ const HOUR = 60 * 60 * 1000;
 const REPLY_WINDOW_MS = 7 * 24 * HOUR;
 // Worth another try later: rate limits and Instagram/network hiccups. Anything else (comment deleted, already
 // answered, bad template) fails for good.
-const RETRYABLE = /rate|limit|too many|temporar|try again|timeout|timed out|network|fetch failed|instagram 5\d\d|code (1|2|4|17|32|613|80002)\b|2534040/i;
+const RETRYABLE = /rate|limit|too many|temporar|try again|timeout|timed out|network|fetch failed|instagram 5\d\d|code (1|2|4|17|32|613|80002)\b|2534040|thread does not exist/i;
+// Instagram says this when the account has opened too many new conversations. It clears on its own. Wait an hour
+// between tries, and don't send those retries while a newer comment is still being refused.
+const THROTTLED = /thread does not exist/i;
+const THROTTLE_COOL_MS = 10 * 60_000;
 
 const sentLastHour = async (db: D1Database, now: number) =>
   (await db.prepare(`SELECT COUNT(*) n FROM comments WHERE sent_at > ?1`).bind(now - HOUR).first<{ n: number }>())?.n ?? 0;
@@ -152,12 +156,16 @@ async function sendCommentDm(db: D1Database, token: string | null, skoolLink: st
     const row = await db.prepare(`SELECT attempts FROM comments WHERE comment_id = ?1`).bind(c.comment_id).first<{ attempts: number }>();
     const attempts = (row?.attempts ?? 0) + 1;
     const retry = RETRYABLE.test(String(e)) && attempts < 12 && now - at < REPLY_WINDOW_MS;
-    // 2, 4, 8 ... minutes, capped at an hour.
-    const wait = Math.min(HOUR, 2 ** attempts * 60_000);
+    // 2, 4, 8 ... minutes, capped at an hour. A new-conversation throttle waits a full hour.
+    const throttled = THROTTLED.test(String(e));
+    const wait = throttled ? HOUR : Math.min(HOUR, 2 ** attempts * 60_000);
     await db
       .prepare(`UPDATE comments SET status = ?2, trigger_id = ?3, error = ?4, attempts = ?5, retry_at = ?6 WHERE comment_id = ?1`)
       .bind(c.comment_id, retry ? "queued" : "failed", trigger.id, redactSecrets(String(e)), attempts, retry ? now + wait : null)
       .run();
+    if (throttled) {
+      await db.prepare(`INSERT INTO settings (key, value) VALUES ('comment_throttled_at', ?1) ON CONFLICT (key) DO UPDATE SET value = excluded.value`).bind(String(now)).run();
+    }
     return;
   }
 
@@ -165,15 +173,57 @@ async function sendCommentDm(db: D1Database, token: string | null, skoolLink: st
   if (reply && token) await replyToComment(token, c.comment_id, reply).catch((e) => logError(db, "public reply", c.comment_id, e, now));
 }
 
+// The keyword a refused commenter is told to DM. None when the automation has no public reply, or the keyword is "*".
+const offer = (t: { keyword: string; public_reply: string | null }) =>
+  t.public_reply?.trim() ? t.keyword.split(",").map((k) => k.trim()).find((k) => k && k !== "*") : undefined;
+
+const FALLBACK_REPLIES = [
+  "insta's limiting my auto DMs since so many people commented 😅 DM me {kw} and i'll send it right over",
+  "this normally hits your DMs automatically but insta's capping me rn from all the comments. DM me {kw} and it's yours",
+  "insta only lets me start so many new chats at once. if you DM me {kw} first it goes straight through",
+];
+
+// When Instagram refuses the private reply as too many new conversations, one public reply tells them to DM the
+// keyword. A conversation they open isn't under that cap. Newest first, at most 8 a minute, once per comment.
+export async function tellRefused(db: D1Database, token: string | null, now: number): Promise<number> {
+  if (!token) return 0;
+  const { results } = await db
+    .prepare(
+      `SELECT c.comment_id, t.keyword, t.public_reply FROM comments c JOIN triggers t ON t.id = c.trigger_id
+       WHERE c.status = 'queued' AND c.fallback_at IS NULL AND c.error LIKE '%thread does not exist%' AND c.created_at > ?1
+         AND NOT EXISTS (SELECT 1 FROM flow_starts f WHERE f.trigger_id = c.trigger_id AND f.subscriber_id = c.subscriber_id AND f.status = 'sent')
+       ORDER BY c.created_at DESC LIMIT 8`,
+    )
+    .bind(now - REPLY_WINDOW_MS)
+    .all<{ comment_id: string; keyword: string; public_reply: string | null }>();
+  if (!results.length) return 0;
+  for (const r of results) {
+    const kw = offer(r);
+    if (kw) {
+      const text = FALLBACK_REPLIES[Math.floor(Math.random() * FALLBACK_REPLIES.length)].replace("{kw}", kw.toUpperCase());
+      await replyToComment(token, r.comment_id, text).catch((e) => logError(db, "public reply", r.comment_id, e, now));
+    }
+    await db.prepare(`UPDATE comments SET fallback_at = ?2 WHERE comment_id = ?1`).bind(r.comment_id, kw ? now : 0).run();
+  }
+  return results.length;
+}
+
 // Cron: send queued private replies, oldest first, inside what's left of the hour's budget (at most 40 a minute so a
 // backlog drains steadily instead of in one burst). Past the 7-day window they expire.
 export async function drainComments(db: D1Database, token: string | null, skoolLink: string, now: number): Promise<number> {
   await db.prepare(`UPDATE comments SET status = 'expired' WHERE status = 'queued' AND created_at < ?1`).bind(now - REPLY_WINDOW_MS).run();
+  await tellRefused(db, token, now).catch((e) => logError(db, "refused comment reply", null, e, now));
   const room = Math.min(40, HOURLY_BUDGET - (await sentLastHour(db, now)));
   if (room <= 0) return 0;
+  const last = Number((await db.prepare(`SELECT value FROM settings WHERE key = 'comment_throttled_at'`).first<{ value: string }>())?.value ?? 0);
+  const throttledRoom = now - last > THROTTLE_COOL_MS ? Math.min(4, room) : 0;
   const { results } = await db
-    .prepare(`SELECT * FROM comments WHERE status = 'queued' AND retry_at <= ?1 ORDER BY created_at LIMIT ?2`)
-    .bind(now, room)
+    .prepare(
+      `SELECT * FROM (SELECT * FROM comments WHERE status = 'queued' AND retry_at <= ?1 AND (error IS NULL OR error NOT LIKE '%thread does not exist%') ORDER BY created_at LIMIT ?2)
+       UNION ALL
+       SELECT * FROM (SELECT * FROM comments WHERE status = 'queued' AND retry_at <= ?1 AND error LIKE '%thread does not exist%' ORDER BY created_at LIMIT ?3)`,
+    )
+    .bind(now, room - throttledRoom, throttledRoom)
     .all<{ comment_id: string; subscriber_id: string; username: string | null; media_id: string | null; text: string; trigger_id: number; created_at: number }>();
   for (const r of results) {
     const trigger = await db.prepare(`SELECT * FROM triggers WHERE id = ?1 AND enabled = 1 AND deleted_at IS NULL`).bind(r.trigger_id).first<Trigger>();

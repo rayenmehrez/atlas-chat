@@ -237,6 +237,16 @@ const status = async (env: Env, id: string) =>
 describe("comment-to-DM", () => {
   it("parses comments and live comments, skipping our own and other fields", () => {
     expect(parseComments(comment("AI pls"))).toEqual([{ comment_id: "c1", lead_id: LEAD, username: "lead.handle", media_id: "reel1", text: "AI pls" }]);
+    const unified = {
+      object: "instagram",
+      entry: [{ id: ME, changes: [{ field: "comments", value: { comment_id: "c9", text: "guide", from: { id: LEAD, username: "lead.handle" }, media: { id: "reel9" } } }] }],
+    };
+    expect(parseComments(unified)).toEqual([{ comment_id: "c9", lead_id: LEAD, username: "lead.handle", media_id: "reel9", text: "guide" }]);
+    const asChange = {
+      object: "instagram",
+      entry: [{ id: ME, changes: [{ field: "messages", value: { sender: { id: LEAD }, recipient: { id: ME }, timestamp: 5, message: { mid: "m9", text: "from changes" } } }] }],
+    };
+    expect(parseWebhook(asChange)).toMatchObject([{ kind: "inbound", lead_id: LEAD, mid: "m9", text: "from changes" }]);
     expect(parseComments(comment("thanks!", "c2", ME))).toEqual([]);
     const live = { object: "instagram", entry: [{ id: ME, changes: [{ field: "live_comments", value: { id: "l1", text: "yo", from: { id: LEAD } } }] }] };
     expect(parseComments(live)).toHaveLength(1);

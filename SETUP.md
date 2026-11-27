@@ -57,9 +57,9 @@ The steps, so you can answer questions (in every address, `<url>` is theirs):
 
 1. developers.facebook.com/apps, logged in with the Facebook account that manages the Instagram account. Register as a developer if asked.
 2. **Create app** → any name → use case **Other** → type **Business**.
-3. Add the **Instagram** product → **API setup with Instagram login**.
-4. Note the **Instagram app ID** and **Instagram app secret** on that page.
-5. **Configure webhooks**: callback URL `<url>/meta`, verify token from `MY-SETUP.md`. Verify and save, then switch on the fields `messages`, `messaging_postbacks`, `messaging_seen`, `messaging_referral`, `message_reactions`, `message_edit`, `comments`, `live_comments`.
+3. Add the **Instagram** product. Rayen's app uses **API setup with Unified login** (the token starts with `EA`). An older app can use **API setup with Instagram login** (the token starts with `IG`).
+4. Note the app id and the **app secret**. For Unified Login that is the Meta app secret under **App settings → Basic** (webhooks are signed with that secret). For Instagram Login it is the Instagram app secret on the Instagram login page.
+5. **Configure webhooks**: callback URL `<url>/meta`, verify token from `MY-SETUP.md`. For Unified Login this is **Webhooks → Instagram** on the Meta app (not the callback inside API setup with Instagram login). Verify and save, then switch on the fields `messages`, `messaging_postbacks`, `messaging_seen`, `messaging_referral`, `message_reactions`, `message_edit`, `comments`, `live_comments`.
 6. **Set up Instagram business login** (unfold that section first: the button does nothing while it's folded) → Business login settings: OAuth redirect URI `<url>/auth/callback`, deauthorize callback `<url>/deauthorize`, data deletion request URL `<url>/data-deletion`.
 7. **App settings → Basic**: app domain (the address without `https://`), privacy policy URL `<url>/privacy`, terms URL `<url>/terms`, data deletion callback `<url>/data-deletion`, a category, an app icon (`assets/icon.png` works). Save.
 8. **App roles → Roles**: add their Instagram account as an **Instagram tester**, then accept it in Instagram: Settings → Website permissions → Apps and websites → Tester invites.
@@ -69,7 +69,7 @@ Meta moves things around. If a label isn't where a step says, look for the neare
 
 Then:
 
-- Have the user paste the **Instagram app secret** into `.env`, after `META_APP_SECRET=`, and say done.
+- Have the user paste the **app secret** from step 4 into `.env`, after `META_APP_SECRET=`, and say done. Unified Login webhooks are signed with the Meta app secret. The wrong secret makes every Instagram notification fail the signature check.
 - Ask for the **Instagram app ID** (a number, not secret) and run:
 
 ```bash

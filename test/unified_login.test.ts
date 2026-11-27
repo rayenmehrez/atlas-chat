@@ -114,7 +114,7 @@ describe("unified login routing", () => {
     expect(urls().some((u) => u === `${FB_GRAPH}/${IG_ID}/messages`)).toBe(true);
     expect(urls().some((u) => u.startsWith(`${FB_GRAPH}/${IG_ID}/media?`))).toBe(true);
     expect(urls().some((u) => u.startsWith(`${FB_GRAPH}/c1/replies?`))).toBe(true);
-    expect(urls().some((u) => u.startsWith(`${FB_GRAPH}/${IG_ID}/subscribed_apps?`))).toBe(true);
+    expect(urls().some((u) => u.startsWith(`${FB_GRAPH}/${IG_ID}/subscribed_apps?`) && decodeURIComponent(u).includes("message_reactions") && decodeURIComponent(u).includes("messaging_referral"))).toBe(true);
     expect(urls().some((u) => /\/me\/(?!assigned_instagram_accounts)/.test(u))).toBe(false);
   });
 
@@ -126,7 +126,7 @@ describe("unified login routing", () => {
     expect(urls().some((u) => u.includes("graph.facebook.com") || u.includes("/assigned_instagram_accounts"))).toBe(false);
     expect(urls().some((u) => u === `${IG_GRAPH}/me/messages`)).toBe(true);
     expect(urls().some((u) => u.startsWith(`${IG_GRAPH}/me/media?`))).toBe(true);
-    expect(urls().some((u) => u.startsWith(`${IG_GRAPH}/me/subscribed_apps?`))).toBe(true);
+    expect(urls().some((u) => u.startsWith(`${IG_GRAPH}/me/subscribed_apps?`) && !decodeURIComponent(u).includes("message_reactions"))).toBe(true);
     expect(urls().some((u) => u.includes(IG))).toBe(false);
   });
 
