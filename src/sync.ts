@@ -8,12 +8,12 @@
 
 import { MSG_FIELDS, partsFromApi, saveParts, type ApiMessageDetail, type Part } from "./attachments";
 import * as db from "./db";
-import { fetchProfile, graph } from "./meta";
+import { fetchProfile, graph, graphPath, instagramAccountId } from "./meta";
 import { saveProfile } from "./profiles";
 import type { Env } from "./setter";
 
 // The account's Instagram id as conversations report it (17841...). Not settings.ig_user_id, which is OAuth's
-// app-scoped id. Looked up once from /me and cached.
+// app-scoped id. Looked up once (Instagram Login: /me user_id; Unified Login: assigned_instagram_accounts) and cached.
 const ME_KEY = "ig_account_id";
 const OVERLAP_MS = 2 * 60 * 1000; // re-check a little behind the watermark: updated_time and our clock can disagree
 const MAX_PAGES = 4; // 100 threads a tick is plenty; a longer outage is what scripts/backfill.mjs is for
@@ -62,7 +62,7 @@ export async function syncRecent(env: Env, now: number): Promise<number> {
   if (!token) return 0;
   let me = await db.getSetting(env.DB, ME_KEY);
   if (!me) {
-    me = (await graph<{ user_id: string }>(`/me?fields=user_id`, { headers: { Authorization: `Bearer ${token}` } })).user_id;
+    me = await instagramAccountId(token);
     await db.setSetting(env.DB, ME_KEY, me);
   }
   const watermark = Number((await db.getSetting(env.DB, "sync_at")) ?? 0);
@@ -73,7 +73,7 @@ export async function syncRecent(env: Env, now: number): Promise<number> {
   for (let pageNo = 0; next && pageNo < MAX_PAGES; pageNo++) {
     let page: { data: ApiConversation[]; paging?: { next?: string } };
     try {
-      page = await graph(next.replace("https://graph.instagram.com/v26.0", ""), { headers: { Authorization: `Bearer ${token}` } });
+      page = await graph(graphPath(next), { headers: { Authorization: `Bearer ${token}` } });
     } catch (e) {
       if (!richFields || pageNo || !/code 100\b/.test(String(e))) throw e;
       richFields = false;

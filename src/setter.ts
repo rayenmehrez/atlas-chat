@@ -12,7 +12,7 @@ import { customerLine } from "./roster";
 import { ping } from "./live";
 import { enrichPending } from "./media";
 import { findByIgId, sendBubbles } from "./manychat";
-import { react, refreshToken, senderAction, sendText } from "./meta";
+import { isUnifiedLoginToken, react, redactSecrets, refreshToken, senderAction, sendText } from "./meta";
 import { meter } from "./usage";
 
 export interface Env {
@@ -31,6 +31,7 @@ export interface Env {
   META_IG_APP_ID: string;
   META_APP_SECRET: string; // Instagram app secret (API setup with Instagram login)
   META_VERIFY_TOKEN: string;
+  ATLAS_PREVIEW?: string; // "true" on the local preview: no live Instagram writes (sends, replies, subscriptions, token refresh)
   SKOOL_AUTH_TOKEN?: string;
   ALERT_TOPIC?: string; // ntfy.sh topic for phone alerts (src/health.ts) // The owner's Skool auth_token cookie (one-year JWT): reads new members for join matching
   TYPING?: string; // "true": autopilot sends show seen + typing and pause per bubble
@@ -230,7 +231,7 @@ export async function sendDraft(env: Env, draft: db.Draft, now: number, edited?:
     try {
       mids = await deliver(env, lead, out, opts.replyTo, Boolean(opts.auto && env.TYPING === "true"), opts.typingAt, stop);
     } catch (e) {
-      await db.setDraftStatus(env.DB, draft.id, "failed", String(e));
+      await db.setDraftStatus(env.DB, draft.id, "failed", redactSecrets(String(e)));
       return;
     }
     if (mids.length < out.length) {
@@ -256,7 +257,7 @@ export async function sendDraft(env: Env, draft: db.Draft, now: number, edited?:
     try {
       await heart(env, lead, draft.after_message_id);
     } catch (e) {
-      await db.setDraftStatus(env.DB, draft.id, "failed", String(e));
+      await db.setDraftStatus(env.DB, draft.id, "failed", redactSecrets(String(e)));
       return;
     }
   }
@@ -288,12 +289,19 @@ async function heart(env: Env, lead: db.Lead, messageId: number): Promise<void> 
   await env.DB.prepare(`UPDATE messages SET reactions = ?2 WHERE id = ?1`).bind(messageId, JSON.stringify(rx)).run();
 }
 
-// Long-lived Instagram tokens last 60 days; refresh weekly so it never lapses.
+// Instagram Login tokens last 60 days; refresh weekly so one never lapses. Unified Login system-user tokens
+// (EA…) are not rotated here: ig_refresh_token does not apply, and writing a failed refresh over the row would
+// wipe a token that still works. null from refreshToken means "keep the saved value".
 async function keepTokenFresh(env: Env, now: number): Promise<void> {
   const token = await db.getSetting(env.DB, "ig_token");
   const at = Number((await db.getSetting(env.DB, "ig_token_at")) ?? 0);
   if (!token || now - at < TOKEN_REFRESH_MS) return;
-  await db.setSetting(env.DB, "ig_token", await refreshToken(token));
+  const next = await refreshToken(token);
+  if (!next) {
+    if (isUnifiedLoginToken(token)) await db.setSetting(env.DB, "ig_token_at", String(now));
+    return;
+  }
+  await db.setSetting(env.DB, "ig_token", next);
   await db.setSetting(env.DB, "ig_token_at", String(now));
 }
 

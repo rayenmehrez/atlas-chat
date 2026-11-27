@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { makeD1 } from "./d1shim";
 import * as db from "../src/db";
-import { drainComments, handleComment, HOURLY_BUDGET } from "../src/comments";
+import { drainComments, handleComment, HOURLY_BUDGET, tellRefused } from "../src/comments";
 import { syncComments } from "../src/comment_sync";
 import type { Env } from "../src/setter";
 
@@ -91,10 +91,39 @@ describe("private reply queue", () => {
     await handleComment(env.DB, "tok", env.SKOOL_LINK, comment("c2"), T);
     expect((await status(env, "c2")).status).toBe("failed");
 
+    // Too many new conversations: Instagram says the thread doesn't exist. Wait an hour, and don't retry while it's still refusing.
+    failNext = "The thread owner has archived or deleted this conversation, or the thread does not exist.";
+    await handleComment(env.DB, "tok", env.SKOOL_LINK, comment("c4"), T);
+    expect(await status(env, "c4")).toEqual({ status: "queued", attempts: 1 });
+    expect(await drainComments(env.DB, "tok", env.SKOOL_LINK, T + 30 * MIN)).toBe(0);
+    failNext = "The thread owner has archived or deleted this conversation, or the thread does not exist.";
+    await handleComment(env.DB, "tok", env.SKOOL_LINK, comment("c5"), T + 55 * MIN);
+    expect(await drainComments(env.DB, "tok", env.SKOOL_LINK, T + 61 * MIN)).toBe(0);
+    expect(await drainComments(env.DB, "tok", env.SKOOL_LINK, T + 66 * MIN)).toBe(1);
+    expect((await status(env, "c4")).status).toBe("sent");
+    expect((await status(env, "c5")).status).toBe("queued");
+
     failNext = "rate limit";
     await handleComment(env.DB, "tok", env.SKOOL_LINK, comment("c3"), T);
     await drainComments(env.DB, "tok", env.SKOOL_LINK, T + 8 * 24 * 60 * MIN);
     expect((await status(env, "c3")).status).toBe("expired");
+  });
+});
+
+describe("refused as too many new conversations", () => {
+  const REFUSED = "The thread owner has archived or deleted this conversation, or the thread does not exist.";
+
+  it("tells them once to DM the keyword, and does not say the DM was sent", async () => {
+    const env = await setup();
+    await env.DB.prepare(`UPDATE triggers SET public_reply = 'gotchu, sent'`).run();
+    failNext = REFUSED;
+    await handleComment(env.DB, "tok", env.SKOOL_LINK, comment("c1"), T);
+    expect(calls.filter((c) => c.url.includes("/replies?"))).toHaveLength(0);
+    expect(await tellRefused(env.DB, "tok", T + MIN)).toBe(1);
+    const messages = calls.filter((c) => c.url.includes("/replies?")).map((c) => new URL(c.url).searchParams.get("message"));
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatch(/DM me AGENT/);
+    expect(await tellRefused(env.DB, "tok", T + 2 * MIN)).toBe(0);
   });
 });
 

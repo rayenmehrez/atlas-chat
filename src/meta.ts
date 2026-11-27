@@ -1,10 +1,33 @@
-// Official Instagram API (Instagram Login) transport: webhooks in, Send API out, business-login OAuth
-// for the token. App: AtlasChat (Instagram app id in META_IG_APP_ID).
+// Official Instagram API transport: webhooks in, Send API out, business-login OAuth for the token.
+// Two token kinds share this file:
+// - Instagram Login (IG…): https://graph.instagram.com and /me/…
+// - Instagram API with Unified Login (EA…, a Business Integration System User token): https://graph.facebook.com,
+//   the account id from /me/assigned_instagram_accounts, then /{ig-user-id}/…
+// App: AtlasChat (Instagram app id in META_IG_APP_ID).
 
+import { AsyncLocalStorage } from "node:async_hooks";
 import type { MessageUpdate, Part } from "./attachments";
+import { IG_HANDLE } from "./brand";
 
-const GRAPH = "https://graph.instagram.com/v26.0";
+export const IG_GRAPH = "https://graph.instagram.com/v26.0";
+export const FB_GRAPH = "https://graph.facebook.com/v27.0";
 export const SCOPES = "instagram_business_basic,instagram_business_manage_messages,instagram_business_manage_comments";
+
+// Unified Login Business Integration System User tokens start with EA. Instagram Login user tokens start with IG.
+// Anything else (including tests' short stand-in tokens) stays on the Instagram Login host, which is the old behavior.
+export function isUnifiedLoginToken(token: string): boolean {
+  return token.startsWith("EA");
+}
+
+export function graphOrigin(token: string | null | undefined): string {
+  return token && isUnifiedLoginToken(token) ? FB_GRAPH : IG_GRAPH;
+}
+
+// paging.next is an absolute URL on whichever host Meta used. Callers pass it back through graph(), which
+// reattaches the host that matches the token. Strip either host, with or without a version.
+export function graphPath(urlOrPath: string): string {
+  return urlOrPath.replace(/^https:\/\/graph\.(?:instagram|facebook)\.com(?:\/v[\d.]+)?/, "");
+}
 
 export async function hmacHex(secret: string, body: string): Promise<string> {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
@@ -12,15 +35,20 @@ export async function hmacHex(secret: string, body: string): Promise<string> {
   return [...new Uint8Array(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// X-Hub-Signature-256: "sha256=<hex>" over the raw body with the app secret.
+function safeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+// X-Hub-Signature-256: "sha256=<hex>" over the raw body with the app secret. Missing, empty, or wrong: reject.
 export async function verifySignature(secret: string, body: string, header: string | null): Promise<boolean> {
   if (!secret || !header?.startsWith("sha256=")) return false;
+  const got = header.slice(7).trim();
+  if (!/^[0-9a-f]{64}$/i.test(got)) return false;
   const expected = await hmacHex(secret, body);
-  const got = header.slice(7);
-  if (got.length !== expected.length) return false;
-  let diff = 0;
-  for (let i = 0; i < got.length; i++) diff |= got.charCodeAt(i) ^ expected.charCodeAt(i);
-  return diff === 0;
+  return safeEqual(got.toLowerCase(), expected);
 }
 
 const b64url = (s: string) => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
@@ -32,7 +60,7 @@ export async function parseSignedRequest(secret: string, sr: string | null): Pro
   try {
     const expected = await hmacHex(secret, payload);
     const got = [...b64url(sig)].map((b) => b.toString(16).padStart(2, "0")).join("");
-    if (got !== expected) return null;
+    if (!safeEqual(got, expected)) return null;
     const data = JSON.parse(new TextDecoder().decode(b64url(payload))) as { user_id?: string | number };
     return data.user_id ? { user_id: String(data.user_id) } : null;
   } catch {
@@ -153,7 +181,7 @@ export function webhookParts(m: { reply_to?: { story?: { url?: string; id?: stri
 // mid -> parts for every message in a webhook payload that has any.
 export function parseParts(payload: unknown): Map<string, Part[]> {
   const out = new Map<string, Part[]>();
-  const p = payload as { object?: string; entry?: { messaging?: { message?: RawMessaging["message"] & { reply_to?: { story?: { url?: string; id?: string } } } }[] }[] };
+  const p = normalizeWebhook(payload) as { object?: string; entry?: { messaging?: { message?: RawMessaging["message"] & { reply_to?: { story?: { url?: string; id?: string } } } }[] }[] };
   if (p?.object !== "instagram" || !Array.isArray(p.entry)) return out;
   for (const entry of p.entry) {
     for (const ev of entry.messaging ?? []) {
@@ -170,7 +198,7 @@ export function parseParts(payload: unknown): Map<string, Part[]> {
 // a message back through the API has no reply field, so it's saved now or never.
 export function parseReplies(payload: unknown): Map<string, string> {
   const out = new Map<string, string>();
-  const p = payload as { object?: string; entry?: { messaging?: RawMessaging[] }[] };
+  const p = normalizeWebhook(payload) as { object?: string; entry?: { messaging?: RawMessaging[] }[] };
   if (p?.object !== "instagram" || !Array.isArray(p.entry)) return out;
   for (const entry of p.entry) {
     for (const ev of entry.messaging ?? []) {
@@ -184,7 +212,7 @@ export function parseReplies(payload: unknown): Map<string, string> {
 
 // Reactions, edits and unsends: small updates to a message we already have.
 export function parseMessageUpdates(payload: unknown): MessageUpdate[] {
-  const p = payload as {
+  const p = normalizeWebhook(payload) as {
     object?: string;
     entry?: {
       id?: string;
@@ -211,8 +239,35 @@ export function parseMessageUpdates(payload: unknown): MessageUpdate[] {
   return out;
 }
 
+// Unified Login (and Facebook Login) can deliver the same events as `changes[]` instead of `messaging[]`,
+// and a comment's id as `comment_id` rather than `id`. Instagram Login still uses `messaging[]` and `value.id`.
+// Fold the changes-shaped events into `messaging` so every parser below sees one shape. Safe to call twice.
+const MESSAGING_FIELDS = new Set(["messages", "message_reactions", "messaging_postbacks", "messaging_referral", "messaging_seen", "message_edit", "message_edits"]);
+
+export function normalizeWebhook(payload: unknown): unknown {
+  const p = payload as { object?: string; entry?: Record<string, unknown>[] };
+  if (p?.object !== "instagram" || !Array.isArray(p.entry)) return payload;
+  return {
+    ...p,
+    entry: p.entry.map((entry) => {
+      const existing = Array.isArray(entry.messaging) ? (entry.messaging as unknown[]) : [];
+      const changes = Array.isArray(entry.changes) ? (entry.changes as { field?: string; value?: unknown }[]) : [];
+      const seen = new Set(existing.map((ev) => JSON.stringify(ev)));
+      const messaging = [...existing];
+      for (const ch of changes) {
+        if (!ch?.field || !MESSAGING_FIELDS.has(ch.field) || !ch.value || typeof ch.value !== "object") continue;
+        const key = JSON.stringify(ch.value);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        messaging.push(ch.value);
+      }
+      return { ...entry, messaging };
+    }),
+  };
+}
+
 export function parseWebhook(payload: unknown): MetaEvent[] {
-  const p = payload as { object?: string; entry?: { id?: string; messaging?: RawMessaging[] }[] };
+  const p = normalizeWebhook(payload) as { object?: string; entry?: { id?: string; messaging?: RawMessaging[] }[] };
   if (p?.object !== "instagram" || !Array.isArray(p.entry)) return [];
   const events: MetaEvent[] = [];
   for (const entry of p.entry) {
@@ -249,10 +304,11 @@ export interface MetaComment {
 
 interface RawChange {
   field?: string;
-  value?: { id?: string; text?: string; from?: { id?: string; username?: string }; media?: { id?: string } };
+  value?: { id?: string; comment_id?: string; text?: string; from?: { id?: string; username?: string }; media?: { id?: string } };
 }
 
 // "comments" and "live_comments" webhook changes. Skips the account's own comments (including our public replies).
+// Instagram Login sends the comment id as `id`. Unified Login sends it as `comment_id`.
 export function parseComments(payload: unknown): MetaComment[] {
   const p = payload as { object?: string; entry?: { id?: string; changes?: RawChange[] }[] };
   if (p?.object !== "instagram" || !Array.isArray(p.entry)) return [];
@@ -260,18 +316,147 @@ export function parseComments(payload: unknown): MetaComment[] {
   for (const entry of p.entry) {
     for (const ch of entry.changes ?? []) {
       const v = ch.value;
-      if ((ch.field !== "comments" && ch.field !== "live_comments") || !v?.id || !v.from?.id || !v.text) continue;
+      const commentId = v?.id ?? v?.comment_id;
+      if ((ch.field !== "comments" && ch.field !== "live_comments") || !commentId || !v?.from?.id || !v.text) continue;
       if (v.from.id === entry.id) continue;
-      out.push({ comment_id: v.id, lead_id: v.from.id, username: v.from.username ?? null, media_id: v.media?.id ?? null, text: v.text });
+      out.push({ comment_id: commentId, lead_id: v.from.id, username: v.from.username ?? null, media_id: v.media?.id ?? null, text: v.text });
     }
   }
   return out;
 }
 
+// Drop access tokens out of anything that might be logged, stored, or shown. Meta sometimes echoes the token
+// inside an error message, and a failed fetch can include the request URL.
+export function redactSecrets(text: string, token?: string | null): string {
+  let out = text;
+  if (token && token.length >= 8) out = out.split(token).join("[token]");
+  return out
+    .replace(/\b(?:EA|IG)[A-Za-z0-9._-]{16,}\b/g, "[token]")
+    .replace(/access_token=[^&\s'"]+/gi, "access_token=[token]")
+    .replace(/Bearer\s+[A-Za-z0-9._-]{16,}/gi, "Bearer [token]")
+    .replace(/client_secret=[^&\s'"]+/gi, "client_secret=[secret]");
+}
+
+// Preview and localhost must not send DMs, post public replies, or change live subscriptions. The fetch handler
+// (and the cron, when ATLAS_PREVIEW is set) runs inside this. Direct calls from tests have no store, so writes stay on.
+const writePolicy = new AsyncLocalStorage<boolean>();
+
+export function withInstagramWrites<T>(allowed: boolean, fn: () => Promise<T>): Promise<T> {
+  return writePolicy.run(allowed, fn);
+}
+
+export function instagramWritesAllowed(): boolean {
+  return writePolicy.getStore() !== false;
+}
+
+const PREVIEW_WRITE = "instagram: preview does not send or change the live account";
+
+function assertCanMutate(method: string): void {
+  if (method === "GET" || method === "HEAD") return;
+  if (!instagramWritesAllowed()) throw new Error(PREVIEW_WRITE);
+}
+
+interface AssignedAccount {
+  id?: string;
+  user_id?: string;
+  username?: string;
+  name?: string;
+  profile_picture_url?: string;
+}
+
+const accountCache = new Map<string, AssignedAccount>();
+
+export function clearInstagramAccountCache(): void {
+  accountCache.clear();
+}
+
+function bearer(init?: RequestInit): string | null {
+  if (!init?.headers) return null;
+  const auth = new Headers(init.headers).get("Authorization");
+  const m = auth?.match(/^Bearer\s+(\S+)/i);
+  return m?.[1] ?? null;
+}
+
+function accessTokenParam(path: string): string | null {
+  const q = path.split("?")[1];
+  if (!q) return null;
+  return new URLSearchParams(q).get("access_token");
+}
+
+function stripAccessToken(path: string): string {
+  const qIndex = path.indexOf("?");
+  if (qIndex < 0 || !path.includes("access_token=")) return path;
+  const params = new URLSearchParams(path.slice(qIndex + 1));
+  if (!params.has("access_token")) return path;
+  params.delete("access_token");
+  const s = params.toString();
+  return s ? `${path.slice(0, qIndex)}?${s}` : path.slice(0, qIndex);
+}
+
+function needsAccountId(path: string): boolean {
+  if (path.startsWith("/me/assigned_instagram_accounts")) return false;
+  return path === "/me" || path.startsWith("/me/") || path.startsWith("/me?");
+}
+
+function pickAssigned(rows: AssignedAccount[]): AssignedAccount {
+  const list = rows.filter((a) => a.id);
+  if (!list.length) throw new Error("instagram 400: no assigned Instagram account");
+  const prefer = IG_HANDLE && !IG_HANDLE.startsWith("REPLACE") ? IG_HANDLE.toLowerCase() : "";
+  if (prefer) {
+    const match = list.find((a) => (a.username ?? "").toLowerCase() === prefer);
+    if (match) return match;
+  }
+  if (list.length === 1) return list[0];
+  throw new Error("instagram 400: this token is assigned to more than one Instagram account");
+}
+
+async function loadUnifiedAccount(token: string): Promise<AssignedAccount> {
+  const hit = accountCache.get(token);
+  if (hit?.id) return hit;
+  const body = await graph<{ data?: AssignedAccount[] }>(`/me/assigned_instagram_accounts?fields=id,username,name,profile_picture_url`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const account = pickAssigned(body.data ?? []);
+  accountCache.set(token, account);
+  return account;
+}
+
+// The Instagram professional account id (1784…). Unified Login reads it from assigned_instagram_accounts.
+// Instagram Login still reads user_id from /me.
+export async function instagramAccountId(token: string): Promise<string> {
+  if (isUnifiedLoginToken(token)) {
+    const account = await loadUnifiedAccount(token);
+    if (!account.id) throw new Error("instagram 400: no assigned Instagram account");
+    return account.id;
+  }
+  // `id` on /me is app-scoped. Conversations and webhooks use `user_id` (the same value Unified Login returns).
+  const me = await graph<{ user_id?: string }>(`/me?fields=user_id`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!me.user_id) throw new Error("instagram: no user id");
+  return String(me.user_id);
+}
+
 export async function graph<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${GRAPH}${path}`, init);
+  const method = (init?.method ?? "GET").toUpperCase();
+  assertCanMutate(method);
+  const token = bearer(init) ?? accessTokenParam(path);
+  let urlPath = stripAccessToken(graphPath(path));
+  if (token && isUnifiedLoginToken(token) && needsAccountId(urlPath)) {
+    const id = await instagramAccountId(token);
+    urlPath = urlPath.replace(/^\/me(?=\/|\?|$)/, `/${id}`);
+  }
+  const headers = new Headers(init?.headers);
+  if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
+  let res: Response;
+  try {
+    res = await fetch(`${graphOrigin(token)}${urlPath}`, { ...init, headers });
+  } catch (e) {
+    throw new Error(`instagram: ${redactSecrets(e instanceof Error ? e.message : String(e), token)}`);
+  }
   const body = (await res.json().catch(() => ({}))) as T & { error?: { message?: string; code?: number } };
-  if (!res.ok || body.error) throw new Error(`instagram ${res.status}${body.error?.code ? ` code ${body.error.code}` : ""}: ${body.error?.message ?? "request failed"}`);
+  if (!res.ok || body.error) {
+    const message = redactSecrets(body.error?.message ?? "request failed", token);
+    throw new Error(`instagram ${res.status}${body.error?.code ? ` code ${body.error.code}` : ""}: ${message}`);
+  }
   return body;
 }
 
@@ -360,12 +545,22 @@ export async function fetchProfile(token: string, leadId: string): Promise<{ use
 }
 
 export interface Account {
+  id?: string;
   username?: string;
   name?: string;
   profile_picture_url?: string;
 }
 
 export async function fetchAccount(token: string): Promise<Account> {
+  if (isUnifiedLoginToken(token)) {
+    const account = await loadUnifiedAccount(token);
+    return {
+      id: account.id,
+      username: account.username,
+      name: account.name,
+      profile_picture_url: account.profile_picture_url,
+    };
+  }
   return graph<Account>(`/me?fields=username,name,profile_picture_url`, { headers: { Authorization: `Bearer ${token}` } });
 }
 
@@ -376,29 +571,57 @@ export function authorizeUrl(appId: string, redirectUri: string, state: string):
 
 // code -> short-lived token -> 60-day token. Returns the long-lived token and the account's user id.
 export async function exchangeCode(appId: string, secret: string, redirectUri: string, code: string): Promise<{ token: string; userId: string }> {
-  const res = await fetch("https://api.instagram.com/oauth/access_token", {
-    method: "POST",
-    body: new URLSearchParams({ client_id: appId, client_secret: secret, grant_type: "authorization_code", redirect_uri: redirectUri, code }),
-  });
+  let res: Response;
+  try {
+    res = await fetch("https://api.instagram.com/oauth/access_token", {
+      method: "POST",
+      body: new URLSearchParams({ client_id: appId, client_secret: secret, grant_type: "authorization_code", redirect_uri: redirectUri, code }),
+    });
+  } catch (e) {
+    throw new Error(`oauth: ${redactSecrets(e instanceof Error ? e.message : String(e), secret)}`);
+  }
   const short = (await res.json()) as { access_token?: string; user_id?: number | string; error_message?: string };
-  if (!short.access_token) throw new Error(`oauth: ${short.error_message ?? res.status}`);
-  const r = await fetch(
-    `https://graph.instagram.com/access_token?${new URLSearchParams({ grant_type: "ig_exchange_token", client_secret: secret, access_token: short.access_token })}`,
-  );
+  if (!short.access_token) throw new Error(`oauth: ${redactSecrets(short.error_message ?? String(res.status), secret)}`);
+  let r: Response;
+  try {
+    r = await fetch(
+      `https://graph.instagram.com/access_token?${new URLSearchParams({ grant_type: "ig_exchange_token", client_secret: secret, access_token: short.access_token })}`,
+    );
+  } catch (e) {
+    throw new Error(`long-lived token: ${redactSecrets(redactSecrets(e instanceof Error ? e.message : String(e), secret), short.access_token)}`);
+  }
   const long = (await r.json()) as { access_token?: string; error?: { message?: string } };
-  if (!long.access_token) throw new Error(`long-lived token: ${long.error?.message ?? r.status}`);
+  if (!long.access_token) throw new Error(`long-lived token: ${redactSecrets(redactSecrets(long.error?.message ?? String(r.status), secret), short.access_token)}`);
   return { token: long.access_token, userId: String(short.user_id) };
 }
 
-export async function refreshToken(token: string): Promise<string> {
-  const r = await fetch(`https://graph.instagram.com/refresh_access_token?${new URLSearchParams({ grant_type: "ig_refresh_token", access_token: token })}`);
-  const body = (await r.json()) as { access_token?: string };
-  if (!body.access_token) throw new Error(`token refresh failed: ${r.status}`);
+// null: leave the saved token exactly as it is. Unified Login system-user tokens are not refreshed with
+// grant_type=ig_refresh_token (that call is for Instagram Login only, and a failure must not clear the EA token).
+// Preview also returns null so a local cron cannot rotate a live token.
+export async function refreshToken(token: string): Promise<string | null> {
+  if (!instagramWritesAllowed() || isUnifiedLoginToken(token)) return null;
+  let r: Response;
+  try {
+    r = await fetch(`https://graph.instagram.com/refresh_access_token?${new URLSearchParams({ grant_type: "ig_refresh_token", access_token: token })}`);
+  } catch (e) {
+    throw new Error(`token refresh failed: ${redactSecrets(e instanceof Error ? e.message : String(e), token)}`);
+  }
+  const body = (await r.json().catch(() => ({}))) as { access_token?: string; error?: { message?: string } };
+  if (!body.access_token) throw new Error(`token refresh failed: ${r.status}${body.error?.message ? `: ${redactSecrets(body.error.message, token)}` : ""}`);
   return body.access_token;
 }
 
+// Instagram Login's subscribed fields. Unified Login uses the instagram_* names from Meta's migration guide
+// (message_reactions and messaging_referral are how button taps and ig.me opens arrive on that setup).
+const IG_SUBSCRIBED_FIELDS = "messages,messaging_postbacks,messaging_seen,comments,live_comments";
+const UNIFIED_SUBSCRIBED_FIELDS = "messages,message_reactions,messaging_postbacks,messaging_referral,messaging_seen,comments,live_comments";
+
 export async function subscribe(token: string): Promise<void> {
-  await graph(`/me/subscribed_apps?${new URLSearchParams({ subscribed_fields: "messages,messaging_postbacks,messaging_seen,comments,live_comments", access_token: token })}`, { method: "POST" });
+  // Local preview must not change the live account's webhook subscription.
+  if (!instagramWritesAllowed()) return;
+  const fields = isUnifiedLoginToken(token) ? UNIFIED_SUBSCRIBED_FIELDS : IG_SUBSCRIBED_FIELDS;
+  const q = new URLSearchParams({ subscribed_fields: fields });
+  await graph(`/me/subscribed_apps?${q}`, { method: "POST", headers: { Authorization: `Bearer ${token}` } });
 }
 
 // Instagram sends a heart as a bare "❤" (U+2764), which browsers draw as a white text glyph. One pictograph without the

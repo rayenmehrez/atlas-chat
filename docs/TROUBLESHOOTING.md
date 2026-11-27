@@ -35,6 +35,7 @@ These are the steps in `MY-SETUP.md`. The step number is where to look.
 | The **Business login settings** button does nothing | Open (unfold) that section of the page first, then click it. |
 | Meta won't let you switch to Live | It lists what's missing, usually the privacy policy URL, the app icon or the category from step 7. |
 | Meta talks about App Review | You can skip it. For an Instagram account you own, standard access is enough. |
+| `npm run check` says Instagram refused the saved login, and the token starts with `EA` | That token is from **API setup with Unified login**. It only works on `graph.facebook.com` (assigned Instagram accounts), not on `graph.instagram.com`. Paste it again under Settings, or put it in `.env` as `IG_ACCESS_TOKEN=` and run `npm run setup`. |
 
 ## Messages aren't arriving
 

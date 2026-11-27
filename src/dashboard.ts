@@ -12,7 +12,7 @@ import * as db from "./db";
 import { BASE_URL } from "./links";
 import { COMMUNITY, skoolLinkSql } from "./brand";
 import { clearInstagramToken, crossSite, igNote, instagramLink, isPreviewHost, storeInstagramToken, verifyInstagramToken, type IgLink } from "./ig_token";
-import { react } from "./meta";
+import { react, redactSecrets } from "./meta";
 import { flowChart } from "./flowchart";
 import { waitingLeads } from "./health";
 import { aiBlocker } from "./ready";
@@ -591,7 +591,7 @@ function igConnectionCard(link: IgLink, note: string): string {
     : link.username
       ? "AtlasChat sends and reads as this account."
       : "A token is stored. Use Verify connection to confirm the account.";
-  return `<div class="card sec igc"><div class="ch"><span class="ic">${icon("instagram")}</span><div><h2>Instagram connection</h2><p>Paste a long-lived access token, or connect with Instagram.</p></div></div>
+  return `<div class="card sec igc"><div class="ch"><span class="ic">${icon("instagram")}</span><div><h2>Instagram connection</h2><p>Paste a long-lived token from Instagram Login or Unified Login, or connect with Instagram.</p></div></div>
 ${note ? `<p class="ig-note" role="status">${esc(note)}</p>` : ""}
 <div class="opt"><div><div class="t ig-status"><span class="ig-dot${link.connected ? " on" : ""}" aria-hidden="true"></span>${esc(link.label)}</div><div class="d">${detail}</div></div></div>
 <form method="post" action="/admin/settings/instagram" autocomplete="off">
@@ -852,7 +852,7 @@ export async function consoleRoute(env: Env, req: Request, pathname: string, who
       if (!token) throw new Error("instagram not connected");
       await react(token, lead.subscriber_id, mid, emoji);
     } catch (e) {
-      return back(["msg", `Not sent: ${String(e).replace(/^Error: /, "")}`]);
+      return back(["msg", `Not sent: ${redactSecrets(String(e).replace(/^Error: /, ""))}`]);
     }
     const next = { ...rx, you: emoji ?? undefined };
     await env.DB.prepare(`UPDATE messages SET reactions = ?3 WHERE subscriber_id = ?1 AND mid = ?2`).bind(lead.subscriber_id, mid, JSON.stringify(next)).run();

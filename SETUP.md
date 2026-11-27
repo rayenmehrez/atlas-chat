@@ -57,9 +57,9 @@ The steps, so you can answer questions (in every address, `<url>` is theirs):
 
 1. developers.facebook.com/apps, logged in with the Facebook account that manages the Instagram account. Register as a developer if asked.
 2. **Create app** → any name → use case **Other** → type **Business**.
-3. Add the **Instagram** product → **API setup with Instagram login**.
-4. Note the **Instagram app ID** and **Instagram app secret** on that page.
-5. **Configure webhooks**: callback URL `<url>/meta`, verify token from `MY-SETUP.md`. Verify and save, then switch on the fields `messages`, `messaging_postbacks`, `messaging_seen`, `messaging_referral`, `message_reactions`, `message_edit`, `comments`, `live_comments`.
+3. Add the **Instagram** product. Rayen's app uses **API setup with Unified login** (the token starts with `EA`). An older app can use **API setup with Instagram login** (the token starts with `IG`).
+4. Note the app id and the **app secret**. For Unified Login that is the Meta app secret under **App settings → Basic** (webhooks are signed with that secret). For Instagram Login it is the Instagram app secret on the Instagram login page.
+5. **Configure webhooks**: callback URL `<url>/meta`, verify token from `MY-SETUP.md`. For Unified Login this is **Webhooks → Instagram** on the Meta app (not the callback inside API setup with Instagram login). Verify and save, then switch on the fields `messages`, `messaging_postbacks`, `messaging_seen`, `messaging_referral`, `message_reactions`, `message_edit`, `comments`, `live_comments`.
 6. **Set up Instagram business login** (unfold that section first: the button does nothing while it's folded) → Business login settings: OAuth redirect URI `<url>/auth/callback`, deauthorize callback `<url>/deauthorize`, data deletion request URL `<url>/data-deletion`.
 7. **App settings → Basic**: app domain (the address without `https://`), privacy policy URL `<url>/privacy`, terms URL `<url>/terms`, data deletion callback `<url>/data-deletion`, a category, an app icon (`assets/icon.png` works). Save.
 8. **App roles → Roles**: add their Instagram account as an **Instagram tester**, then accept it in Instagram: Settings → Website permissions → Apps and websites → Tester invites.
@@ -69,7 +69,7 @@ Meta moves things around. If a label isn't where a step says, look for the neare
 
 Then:
 
-- Have the user paste the **Instagram app secret** into `.env`, after `META_APP_SECRET=`, and say done.
+- Have the user paste the **app secret** from step 4 into `.env`, after `META_APP_SECRET=`, and say done. Unified Login webhooks are signed with the Meta app secret. The wrong secret makes every Instagram notification fail the signature check.
 - Ask for the **Instagram app ID** (a number, not secret) and run:
 
 ```bash
@@ -83,7 +83,10 @@ It stores the secret, puts the final version live and pauses at "Connect your In
 The Worker does not read an access token from a Wrangler secret. It reads `ig_token` from D1. Two ways to put it there:
 
 - **Log in with Instagram** (usual). OAuth exchanges a short code for a 60-day token, saves it, subscribes to DMs and comments, and the cron refreshes it weekly. The app id (`--app-id`) and `META_APP_SECRET` are required for that exchange and for webhook signatures. They are not the user token.
-- **A token they already have.** They paste a long-lived Instagram user token into `.env` as `IG_ACCESS_TOKEN=` (they paste it, you never read `.env` aloud). Then `npm run setup` checks it is for `@rayen.mhz`, writes it to D1, and subscribes. Weekly refresh only works if that token was issued by this same Meta app. A short-lived token or a token from another app will fail later. Prefer the button when they don't already have the right token.
+- **A token they already have.** They paste a long-lived token into `.env` as `IG_ACCESS_TOKEN=` (they paste it, you never read `.env` aloud). Then `npm run setup` checks it is for `@rayen.mhz`, writes it to D1, and subscribes. Two kinds both work:
+  - **Instagram Login** (`IG…`): checked on `graph.instagram.com` (`/me`). Weekly refresh renews it when this same Meta app issued it.
+  - **Unified Login** (`EA…`, the Business Integration System User token from “API setup with Unified login”): checked on `graph.facebook.com` (`/me/assigned_instagram_accounts`, then `/{ig-user-id}/…`). Meta rejects that token on `graph.instagram.com`. It is not refreshed with `ig_refresh_token`; the saved token is left as it is.
+  A short-lived token or a token from another app will fail later. Prefer the button when they don't already have the right token.
 
 Tell the user to, on a computer (the button isn't shown on phones):
 

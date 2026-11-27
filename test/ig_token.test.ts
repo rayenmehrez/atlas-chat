@@ -29,7 +29,7 @@ function makeEnv(): Env {
   };
 }
 
-type Mode = "ok" | "down" | "reject";
+type Mode = "ok" | "down" | "reject" | "other" | "leak";
 let mode: Mode = "ok";
 const calls: string[] = [];
 
@@ -42,6 +42,8 @@ beforeEach(() => {
       calls.push(String(url));
       if (mode === "down") throw new TypeError("network down");
       if (mode === "reject") return Response.json({ error: { message: `Invalid ${SECRET}`, code: 190 } }, { status: 400 });
+      if (mode === "other" && String(url).includes("/me?")) return Response.json({ username: "someone.else", name: "Other", profile_picture_url: "https://cdn.example/a.jpg" });
+      if (mode === "leak" && String(url).includes("/me?")) return Response.json({ username: "yourhandle", name: SECRET, profile_picture_url: `https://cdn.example/${SECRET}.jpg` });
       if (String(url).includes("/me?")) return Response.json({ username: "yourhandle", name: "Sam", profile_picture_url: "https://cdn.example/a.jpg" });
       return Response.json({ success: true });
     }),
@@ -104,6 +106,7 @@ describe("instagram access token on Settings", () => {
     expect(profile.username).toBe("yourhandle");
     expect(calls.some((u) => u.includes("/me?fields=username"))).toBe(true);
     expect(calls.some((u) => u.includes("/subscribed_apps"))).toBe(true);
+    expect(calls.some((u) => u.includes(SECRET) || u.includes("graph.facebook.com"))).toBe(false);
 
     const html = await htmlOf(env, "?ig=connected");
     expect(html).not.toContain(SECRET);
@@ -207,6 +210,40 @@ describe("instagram access token on Settings", () => {
     const poked = await htmlOf(env, "?ig=%3Cscript%3Ealert(1)%3C/script%3E");
     expect(poked).not.toContain("alert(1)");
     expect(poked).not.toContain(SECRET);
+  });
+
+  it("does not keep a token for a different Instagram account, and does not replace one already saved", async () => {
+    const env = makeEnv();
+    await db.setSetting(env.DB, "ig_token", "already-saved-token-value");
+    mode = "other";
+    const res = await worker.fetch(postToken("pw", { intent: "save", ig_access_token: SECRET }, "https://x", { Origin: "https://x" }), env, ctx);
+    expect(res.headers.get("Location")).toBe("https://x/admin/settings?ig=wrong_account");
+    expect(await db.getSetting(env.DB, "ig_token")).toBe("already-saved-token-value");
+    expect(calls.some((u) => u.includes("/subscribed_apps"))).toBe(false);
+    const html = await htmlOf(env, "?ig=wrong_account");
+    expect(html).toContain("different Instagram account");
+    expect(html).not.toContain(SECRET);
+  });
+
+  it("drops a saved token that verifies as a different account, and never stores the token in the profile", async () => {
+    const env = makeEnv();
+    await db.setSetting(env.DB, "ig_token", SECRET);
+    await db.setSetting(env.DB, "ig_account_id", "17840000000000001");
+    mode = "other";
+    const res = await worker.fetch(postToken("pw", { intent: "verify" }, "https://x", { Origin: "https://x" }), env, ctx);
+    expect(res.headers.get("Location")).toBe("https://x/admin/settings?ig=wrong_account");
+    expect(await db.getSetting(env.DB, "ig_token")).toBeNull();
+    expect(await db.getSetting(env.DB, "ig_account_id")).toBe("17840000000000001");
+
+    mode = "leak";
+    const saved = await worker.fetch(postToken("pw", { intent: "save", ig_access_token: SECRET }, "https://x", { Origin: "https://x" }), env, ctx);
+    expect(saved.headers.get("Location")).toBe("https://x/admin/settings?ig=connected");
+    const profile = await db.getSetting(env.DB, "ig_profile");
+    expect(profile).toContain("yourhandle");
+    expect(profile).not.toContain(SECRET);
+    const html = await htmlOf(env, "?ig=connected");
+    expect(html).toContain("Connected as @yourhandle");
+    expect(html).not.toContain(SECRET);
   });
 
   it("accepts a long-lived token shape and rejects anything else", () => {

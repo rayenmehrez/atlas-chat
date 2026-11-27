@@ -5,6 +5,7 @@
 import { ORIGIN } from "./brand";
 import { APP_NAME } from "./theme";
 import * as db from "./db";
+import { redactSecrets } from "./meta";
 import type { Env } from "./setter";
 
 const MIN = 60_000;
@@ -31,8 +32,8 @@ export async function alert(env: Env, kind: string, title: string, body: string,
 // A failure that used to reach only console.error (gone unless someone was tailing the Worker at that moment): also kept
 // in D1 `errors`, so the Dashboard's Problems card and checkHealth see it. Never throws: logging must not break the caller.
 export async function logError(d1: D1Database, kind: string, ref: string | null, e: unknown, now = Date.now()): Promise<void> {
-  console.error(`${kind}${ref ? ` (${ref})` : ""}:`, e);
-  const detail = e instanceof Error ? [e.message, ...(e.stack?.split("\n").slice(1, 4) ?? [])].join("\n") : String(e);
+  const detail = redactSecrets(e instanceof Error ? [e.message, ...(e.stack?.split("\n").slice(1, 4) ?? [])].join("\n") : String(e));
+  console.error(`${kind}${ref ? ` (${ref})` : ""}:`, detail);
   await d1
     .prepare(`INSERT INTO errors (kind, ref, detail, created_at) VALUES (?1, ?2, ?3, ?4)`)
     .bind(kind, ref, detail.slice(0, 2000), now)
@@ -90,10 +91,11 @@ export async function cronStep(env: Env, name: string, now: number, run: () => P
     await run();
     await db.setSetting(env.DB, `cron_fail:${name}`, "0");
   } catch (e) {
-    console.error(`${name}:`, e);
+    const detail = redactSecrets(e instanceof Error ? e.message : String(e));
+    console.error(`${name}:`, detail);
     const n = Number((await db.getSetting(env.DB, `cron_fail:${name}`)) ?? 0) + 1;
     await db.setSetting(env.DB, `cron_fail:${name}`, String(n));
-    if (n >= CRON_STRIKES) await alert(env, `cron:${name}`, `${name} keeps failing`, `${n} runs in a row. Last error: ${String(e)}`, now);
+    if (n >= CRON_STRIKES) await alert(env, `cron:${name}`, `${name} keeps failing`, `${n} runs in a row. Last error: ${detail}`, now);
   }
 }
 
@@ -110,7 +112,7 @@ export async function checkHealth(env: Env, now: number): Promise<void> {
     .bind(since)
     .first<{ n: number; comment_error: string | null; draft_error: string | null }>();
   if ((failed?.n ?? 0) >= 3) {
-    await alert(env, "sends", `${failed!.n} sends failed in 15 min`, `Last error: ${failed!.comment_error ?? failed!.draft_error ?? "see the console"}`, now);
+    await alert(env, "sends", `${failed!.n} sends failed in 15 min`, `Last error: ${redactSecrets(failed!.comment_error ?? failed!.draft_error ?? "see the console")}`, now);
   }
 
   const queue = await env.DB.prepare(`SELECT COUNT(*) n, MIN(created_at) oldest FROM comments WHERE status = 'queued'`).first<{ n: number; oldest: number | null }>();
@@ -130,7 +132,7 @@ export async function checkHealth(env: Env, now: number): Promise<void> {
   )
     .bind(since)
     .all<{ kind: string; n: number; detail: string }>();
-  for (const k of kinds) await alert(env, `errors:${k.kind}`, `${k.kind} failing (${k.n} in 15 min)`, `Last error: ${k.detail}`, now);
+  for (const k of kinds) await alert(env, `errors:${k.kind}`, `${k.kind} failing (${k.n} in 15 min)`, `Last error: ${redactSecrets(k.detail ?? "")}`, now);
 
   // The AI on (master switch or a thread switched on by hand) and not drafting is a fault. The AI being off is the owner's
   // choice (off until further notice since 2026-11-19), so that only shows on the Dashboard's Problems card, no alert.

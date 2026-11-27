@@ -6,7 +6,7 @@
 // Nothing is copied: once Instagram drops the media, the thread shows the placeholder text.
 
 import * as db from "./db";
-import { graph } from "./meta";
+import { graph, graphPath } from "./meta";
 
 export type PartType =
   | "image"
@@ -333,7 +333,7 @@ async function viaConversation(token: string, leadId: string, want: Set<string>)
   for (let n = 0; page && n < 3; n++) {
     for (const m of page.data ?? []) if (want.has(m.id)) out.set(m.id, { parts: partsFromApi(m), reactions: (m.reactions?.data ?? []).map((r) => r.reaction ?? "").filter(Boolean) });
     if (out.size === want.size || !page.paging?.next) break;
-    page = await graph(page.paging.next.replace(/^https:\/\/graph\.instagram\.com\/v[\d.]+/, ""), { headers: { Authorization: `Bearer ${token}` } });
+    page = await graph(graphPath(page.paging.next), { headers: { Authorization: `Bearer ${token}` } });
   }
   return out;
 }

@@ -6,7 +6,7 @@
 import { handleComment, NEXT_POST } from "./comments";
 import * as db from "./db";
 import { alert } from "./health";
-import { graph } from "./meta";
+import { graph, graphPath } from "./meta";
 import type { Env } from "./setter";
 
 const EVERY_MS = 3 * 60_000;
@@ -65,7 +65,7 @@ export async function syncComments(env: Env, now: number): Promise<number> {
         await handleComment(env.DB, token, env.SKOOL_LINK, { comment_id: c.id, lead_id: c.from.id, username: c.from.username ?? null, media_id: mediaId, text: c.text }, now);
         handled++;
       }
-      url = !older && res.paging?.next ? res.paging.next.replace(/^https:\/\/graph\.instagram\.com\/v[\d.]+/, "") : null;
+      url = !older && res.paging?.next ? graphPath(res.paging.next) : null;
     }
   }
   await db.setSetting(env.DB, "comments_watermark", String(newest));

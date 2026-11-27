@@ -12,7 +12,8 @@ import { getLead, getSetting, recordInbound, setSetting } from "./db";
 import { flowClick, flowSignals, handleInboundFlow, handlePostback, handleRead, parsePostbacks, parseReads, runDueFlows } from "./flows";
 import { handleClick } from "./links";
 import { getSubscriber, parseInbound } from "./manychat";
-import { authorizeUrl, exchangeCode, graph, fetchProfile, parseComments, parseMessageUpdates, parseParts, parseReplies, parseSignedRequest, parseWebhook, subscribe, verifySignature } from "./meta";
+import { isPreviewHost } from "./ig_token";
+import { authorizeUrl, exchangeCode, fetchAccount, fetchProfile, graph, instagramWritesAllowed, isUnifiedLoginToken, parseComments, parseMessageUpdates, parseParts, parseReplies, parseSignedRequest, parseWebhook, redactSecrets, subscribe, verifySignature, withInstagramWrites } from "./meta";
 import { applyUpdate, mediaRoute, saveParts, saveReplyTo } from "./attachments";
 import { legalPage } from "./pages";
 import { saveProfile } from "./profiles";
@@ -103,7 +104,7 @@ async function handleAuth(req: Request, env: Env, pathname: string): Promise<Res
   const code = url.searchParams.get("code");
   const expected = (req.headers.get("Cookie") ?? "").match(new RegExp(`(?:^|;\\s*)${STATE_COOKIE}=([^;]+)`))?.[1];
   if (!code || !state || state !== expected) {
-    const why = url.searchParams.get("error_description") ?? "That sign-in expired or was opened in another browser. Try again here.";
+    const why = redactSecrets(url.searchParams.get("error_description") ?? "That sign-in expired or was opened in another browser. Try again here.");
     return withCleared(loginPage(why, req));
   }
   const login = state.startsWith("login:");
@@ -112,8 +113,10 @@ async function handleAuth(req: Request, env: Env, pathname: string): Promise<Res
     if (login) {
       // Compare Instagram account ids from /me: OAuth's user_id is app-scoped and arrives as a lossy JSON number.
       const owner = await ownerId(env).catch(() => null);
-      const me = await graph<{ user_id: string; username?: string }>(`/me?fields=user_id,username`, { headers: { Authorization: `Bearer ${token}` } });
-      const who = me.user_id;
+      const me = isUnifiedLoginToken(token)
+        ? await fetchAccount(token)
+        : await graph<{ id?: string; user_id?: string; username?: string }>(`/me?fields=user_id,username`, { headers: { Authorization: `Bearer ${token}` } });
+      const who = String(("user_id" in me && me.user_id) || me.id || "");
       if (owner && who !== owner) return withCleared(loginPage("That Instagram account isn't the one this setter runs.", req));
       // The very first sign-in on a fresh install claims it, so only the account it was set up for (brand.ts) may.
       if (!owner && (me.username ?? "").toLowerCase() !== IG_HANDLE.toLowerCase()) {
@@ -126,7 +129,7 @@ async function handleAuth(req: Request, env: Env, pathname: string): Promise<Res
         // sees is enough and their DMs and comments start arriving.
         await setSetting(env.DB, "ig_account_id", who);
         await setSetting(env.DB, "ig_user_id", userId);
-        await subscribe(token);
+        if (instagramWritesAllowed()) await subscribe(token);
       }
       const ok = new Response(null, { status: 303, headers: { Location: `${url.origin}/admin/dashboard`, "Set-Cookie": await sessionCookie(env, Date.now()) } });
       return withCleared(ok);
@@ -140,10 +143,11 @@ async function handleAuth(req: Request, env: Env, pathname: string): Promise<Res
     await setSetting(env.DB, "ig_token", token);
     await setSetting(env.DB, "ig_token_at", String(Date.now()));
     await setSetting(env.DB, "ig_user_id", userId);
-    await subscribe(token);
+    if (instagramWritesAllowed()) await subscribe(token);
   } catch (e) {
-    console.error("instagram login/connect failed:", e);
-    return withCleared(loginPage(`Instagram didn't finish the sign-in (${String(e).slice(0, 120)}). Try again.`, req));
+    const detail = redactSecrets(e instanceof Error ? e.message : String(e));
+    console.error("instagram login/connect failed:", detail);
+    return withCleared(loginPage(`Instagram didn't finish the sign-in (${detail.slice(0, 120)}). Try again.`, req));
   }
   return Response.redirect(`${url.origin}/admin`, 303);
 }
@@ -250,17 +254,27 @@ async function route(req: Request, env: Env, ctx: ExecutionContext): Promise<Res
   }
 }
 
+function writesAllowed(env: Env, req?: Request): boolean {
+  if (env.ATLAS_PREVIEW === "true") return false;
+  if (req && isPreviewHost(req)) return false;
+  return true;
+}
+
 export default {
-  fetch: guarded,
+  fetch(req: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    return withInstagramWrites(writesAllowed(env, req), () => guarded(req, env, ctx));
+  },
 
   async queue(batch: MessageBatch<SendJob>, env: Env): Promise<void> {
-    await runSendJobs(await withSettings(env), batch.messages.map((m) => m.body));
+    await withInstagramWrites(writesAllowed(env), async () => {
+      await runSendJobs(await withSettings(env), batch.messages.map((m) => m.body));
+    });
     batch.ackAll();
   },
 
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(
-      withSettings(env).then((e) =>
+      withInstagramWrites(writesAllowed(env), () => withSettings(env).then((e) =>
         // Each step on its own: one failing never stops the rest, and five failures in a row text the owner.
         Promise.all([
           cronStep(e, "setter", Date.now(), () => tick(e, Date.now())),
@@ -275,7 +289,7 @@ export default {
           cronStep(e, "next post", Date.now(), async () => lockNextPost(e.DB, await getSetting(e.DB, "ig_token"), Date.now())), // a Next Post or Reel trigger finds its post
           cronStep(e, "health", Date.now(), () => checkHealth(e, Date.now())),
         ]),
-      ),
+      )),
     );
   },
 } satisfies ExportedHandler<Env, SendJob>;

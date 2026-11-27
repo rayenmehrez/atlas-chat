@@ -4,7 +4,7 @@
 
 import { IG_HANDLE } from "./brand";
 import * as db from "./db";
-import { graph, hmacHex } from "./meta";
+import { hmacHex, instagramAccountId } from "./meta";
 import type { Env } from "./setter";
 import { APP_NAME, FAVICON, FONT, LOGO } from "./theme";
 
@@ -35,9 +35,10 @@ export async function ownerId(env: Env): Promise<string | null> {
   if (cached) return cached;
   const token = await db.getSetting(env.DB, "ig_token");
   if (!token) return null;
-  const me = await graph<{ user_id: string }>(`/me?fields=user_id`, { headers: { Authorization: `Bearer ${token}` } });
-  await db.setSetting(env.DB, "ig_account_id", me.user_id);
-  return me.user_id;
+  const id = await instagramAccountId(token);
+  if (!id) return null;
+  await db.setSetting(env.DB, "ig_account_id", id);
+  return id;
 }
 
 // On an iPhone, Instagram's app claims instagram.com/consent/ (its "Allow" screen), so the Instagram button bounces
